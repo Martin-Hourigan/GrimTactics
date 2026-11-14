@@ -150,6 +150,20 @@ static func run() -> int:
 	f.step()
 	check(Fight.dist(f.boss, f.hero) == 1, "a leap lands next to the hero")
 
+	print("aiming")
+	f = _aiming([1, 0], Vector2i(1, -1))  # one turn left of its front
+	check(f.phase == "defend" and f.facing == 1, "one turn brings a hex beside its front into the attack")
+	f = _aiming([1, 0], Vector2i(-1, 0))  # right behind it
+	check(f.phase == "boss" and f.hp == Fight.HERO_HP, "one turn can't reach right behind it")
+	f = _aiming([3, 0], Vector2i(-1, 0))
+	check(f.phase == "defend", "three turns can")
+	f = _aiming([0, 1], Vector2i(2, 0))  # two hexes in front
+	check(f.phase == "defend" and Fight.dist(f.boss, f.hero) == 1 and f.facing == 0, "a step closes the gap without turning")
+	f = _aiming([0, 0], Vector2i(1, -1))
+	check(f.phase == "boss" and f.facing == 0, "no budget, no aiming")
+	f = _aiming([2, 0], Vector2i(1, 0))
+	check(f.phase == "defend" and f.facing == 0, "already lined up, it doesn't turn")
+
 	print("blocking and dodging")
 	f = _attacked("longsword", "light", 6, false)
 	check(f.phase == "defend" and f.incoming.dmg == 6, "standing in the attack has to be defended")
@@ -239,6 +253,20 @@ static func _far_hex(f: Fight) -> Vector2i:
 		if f.open_hex(c) and Fight.dist(c, f.boss) > Fight.dist(best, f.boss):
 			best = c
 	return best
+
+
+## The boss facing right aims with budget [turns, steps] and attacks its front,
+## the hero standing at c.
+static func _aiming(budget: Array, c: Vector2i) -> Fight:
+	var f := Fight.new("longsword", "light", 1)
+	f.facing = 0
+	f.hero = c
+	f.phase = "boss"
+	f.card = {"name": "test", "dodge": 1, "weak": []}
+	f.queue = [{"aim": budget}, {"attack": 5, "range": 1, "arcs": ["front"]}]
+	f.step()
+	f.step()
+	return f
 
 
 ## A fight where the hero stands in front of the boss and is being hit for dmg.

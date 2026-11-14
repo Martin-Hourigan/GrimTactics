@@ -44,6 +44,12 @@ my guess, for Martin to change. Run it with play.bat.
 - **Behaviour deck:** a few of the boss's cards are dealt and shuffled. When
   they run out they're played again in the same order, so you can learn the
   pattern.
+- **Aiming (agreed 2026-11-14, instead of the board game's whiffing):** each
+  card has a budget of turns and steps it can spend just before its attack
+  to bring you into it, e.g. Overhead may turn once and step once. Stand
+  further round than the budget reaches and it still misses. (Tried and
+  turned down: the boss picking the best of its 4 cards each turn, which
+  loses the pattern to learn.)
 - **Heat up:** at a set health, one extra card is shuffled in.
 - **Pushes:** some attacks push you a hex away from the boss.
 - **The boss** takes up one hex, and you can't enter it.
@@ -74,7 +80,9 @@ my guess, for Martin to change. Run it with play.bat.
 
 ## Platform
 PC first, mouse clicks only (no hover-only info, no keyboard-only actions),
-so the same layout can go onto a phone later.
+so the same layout can go onto a phone later. Phone: landscape (turns
+with the phone), taps act as clicks, an Android export preset (arm64 APK,
+debug-signed, build/GrimTactics.apk).
 
 ## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
 - **Longsword and shield:** one-handed sword, shield adds block dice.
@@ -107,7 +115,10 @@ decide what you can use. No separate spell bar.
   before armour. Click or Space to stop it.
 - Boss (a knight with sword and shield): health 40, block 1, heats up at
   18. Deck of 4 dealt from 6 cards: Lunge, Sweep, Turn and cut, Overhead,
-  Shield bash, Step back thrust. Heat up adds Leap or Flurry. The next card
+  Shield bash, Step back thrust. Heat up adds Leap or Flurry. Aim budgets
+  (turns, steps): Lunge 1,0 after moving 2; Sweep 1,0; Turn and cut 1,0
+  after spinning round; Overhead 1,1; Shield bash 2,1; Step back thrust 1,0
+  after backing off; Flurry 1,1 each time. All attacks hit arcs. The next card
   is face down; the last one stays showing, and its weak arcs are tinted
   green on your turn.
 - The boss can't be stood on, so a leap lands next to you rather than on

@@ -42,19 +42,22 @@ const DECK_SIZE := 4
 ## Behaviour cards. Steps run left to right:
 ##   move n (towards the hero, or away if negative), turn k (60 degrees each,
 ##   counter-clockwise), leap (next to the hero, facing kept),
+##   aim [turns, steps]: before the next attack it may turn up to this many
+##     times and step up to this many hexes (facing kept) to bring the hero
+##     into that attack,
 ##   attack dmg within range: the hero only, or every hex in the listed arcs.
 ## dodge = how hard the dodge check is (1-3). weak = arcs that take an extra die.
 const CARDS := [
-	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"attack": 5, "range": 1}]},
-	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"attack": 4, "range": 1, "arcs": ["front", "left", "right"]}]},
-	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"attack": 6, "range": 1, "arcs": ["front"], "push": true}]},
-	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"move": 1}, {"attack": 8, "range": 1}]},
-	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"move": 1}, {"attack": 3, "range": 1, "push": true}]},
-	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"attack": 5, "range": 2, "arcs": ["front"]}]},
+	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"aim": [1, 0]}, {"attack": 5, "range": 1, "arcs": ["front"]}]},
+	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"aim": [1, 0]}, {"attack": 4, "range": 1, "arcs": ["front", "left", "right"]}]},
+	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 6, "range": 1, "arcs": ["front"], "push": true}]},
+	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 8, "range": 1, "arcs": ["front"]}]},
+	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"aim": [2, 1]}, {"attack": 3, "range": 1, "arcs": ["front"], "push": true}]},
+	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"aim": [1, 0]}, {"attack": 5, "range": 2, "arcs": ["front"]}]},
 ]
 const HEAT_CARDS := [
 	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 6, "range": 1, "arcs": ["front", "left", "right", "back"]}]},
-	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"move": 1}, {"attack": 4, "range": 1}]},
+	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 4, "range": 1, "arcs": ["front"]}]},
 ]
 
 var weapon: String
@@ -330,6 +333,8 @@ func step() -> void:
 		facing = posmod(facing + s.turn, 6)
 	elif s.has("leap"):
 		_leap()
+	elif s.has("aim"):
+		_aim(s.aim[0], s.aim[1])
 	elif s.has("attack"):
 		_boss_attack(s)
 
@@ -370,6 +375,62 @@ func _leap() -> void:
 			bd = dist(c, boss)
 	boss = best
 	events.append({"type": "boss_move"})
+
+
+## Turn and step, within the budget, so the next attack in the queue hits the
+## hero, with as few moves as it can. If nothing reaches, end up as close and
+## as nearly facing the hero as the budget allows.
+func _aim(turns: int, moves: int) -> void:
+	var s: Dictionary = {}
+	for q in queue:
+		if q.has("attack"):
+			s = q
+			break
+	if s.is_empty():
+		return
+	var start := [boss, facing]
+	var best := start
+	var best_score := INF
+	# [position, facing, turns used, steps used]
+	var open: Array = [[boss, facing, 0, 0]]
+	var seen := {}
+	while not open.is_empty():
+		var st: Array = open.pop_front()
+		var key := "%s %d" % [st[0], st[1]]
+		if seen.has(key):
+			continue
+		seen[key] = true
+		boss = st[0]
+		facing = st[1]
+		var score: float
+		if hero in attack_hexes(s):
+			score = st[2] + st[3] * 1.5
+		else:
+			score = 100.0 + dist(boss, hero) * 10.0 + _turns(facing, _facing_to(hero))
+		if score < best_score:
+			best_score = score
+			best = [st[0], st[1]]
+		if st[2] < turns:
+			for k in [1, -1]:
+				open.append([st[0], posmod(st[1] + k, 6), st[2] + 1, st[3]])
+		if st[3] < moves:
+			for d in DIRS:
+				if open_hex(st[0] + d):
+					open.append([st[0] + d, st[1], st[2], st[3] + 1])
+	boss = best[0]
+	facing = best[1]
+	if best != start:
+		events.append({"type": "boss_move"})
+
+
+## The facing that points most nearly at hex c.
+func _facing_to(c: Vector2i) -> int:
+	var to := flat(c - boss).normalized()
+	var best := 0
+	for i in 6:
+		if flat(DIRS[i]).dot(to) > flat(DIRS[best]).dot(to):
+			best = i
+	return best
 
 
 ## The hexes attack step s covers: its arcs within range, or just the hero.
