@@ -203,6 +203,39 @@ static func run() -> int:
 	var late := Fight.bar(1.2, 1) - Fight.bar(1.1, 1)
 	check(late > early, "the bar speeds up as it fills")
 
+	print("stamina")
+	f = Fight.new("longsword", "light", 1)
+	check(f.stamina == Fight.STAMINA, "the fight starts with full stamina")
+	f.stamina = 1
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.phase == "hero" and f.stamina == 1 + Fight.STAMINA_BACK, "a new turn gives back only a little")
+	f.stamina = Fight.STAMINA - 1
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.stamina == Fight.STAMINA, "never more than the bar holds")
+	for i in Fight.WEAPONS.longsword.acts.size():
+		check(Fight.WEAPONS.longsword.acts[i].st >= 1 and Fight.WEAPONS.claymore.acts[i].st >= 1, "every attack costs stamina (%d)" % i)
+	f = _attacked("longsword", "light", 3, false)
+	f.queue = [{"attack": 3, "range": 1, "arcs": ["front"]}, {"attack": 3, "range": 1, "arcs": ["front"]}]
+	check(f.dodge_cost() == 1, "the first dodge costs 1")
+	f.defend_dodge(f.hero, true)
+	f.step()
+	check(f.phase == "defend" and f.dodge_cost() == 2, "the second costs 2")
+	f.defend_dodge(f.hero, true)
+	check(f.stamina == Fight.STAMINA - 3, "two dodges took 3")
+	f.step()
+	check(f.dodge_cost() == 3, "the third costs 3")
+	f.stamina = 2
+	check(not f.can_dodge(), "too dear, so block")
+	f.defend_block()
+	f.queue = []
+	f.step()
+	f.end_turn()
+	check(f.dodge_cost() == 1, "next boss turn it's back to 1")
+
 	print("flask")
 	f = Fight.new("longsword", "light", 1)
 	check(not f.can_flask(), "no flask at full health")

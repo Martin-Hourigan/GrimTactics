@@ -14,13 +14,14 @@ const DICE := {  ## faces (PLACEHOLDER)
 
 # ---- hero (all PLACEHOLDER) ----
 const HERO_HP := 20
-const STAMINA := 5  ## refilled at the start of every hero turn
+const STAMINA := 6  ## the stamina bar; the fight starts with it full
+const STAMINA_BACK := 2  ## stamina regained at the start of every hero turn
 const FLASKS := 2
 const FLASK_HEAL := 10
-const DODGE_COST := 1
+const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
 const WEAPONS := {
 	"longsword": {"label": "Longsword & shield", "block": ["black"], "acts": [
-		{"label": "Slash", "st": 0, "dice": ["black", "black"]},
+		{"label": "Slash", "st": 1, "dice": ["black", "black"]},
 		{"label": "Heavy slash", "st": 2, "dice": ["black", "blue"]},
 	]},
 	"claymore": {"label": "Claymore", "block": [], "acts": [
@@ -64,6 +65,7 @@ var weapon: String
 var armour: String
 var hp := HERO_HP
 var stamina := STAMINA
+var dodges := 0  ## dodges made this boss turn
 var flasks := FLASKS
 var hero := Vector2i(0, 3)
 var free_step := true
@@ -302,6 +304,7 @@ func flask() -> void:
 func end_turn() -> void:
 	if phase != "hero":
 		return
+	dodges = 0
 	phase = "boss"
 	if deck.is_empty():
 		deck = played  # face down again without shuffling: same order
@@ -322,7 +325,7 @@ func step() -> void:
 		return
 	if queue.is_empty():
 		phase = "hero"
-		stamina = STAMINA
+		stamina = mini(STAMINA, stamina + STAMINA_BACK)
 		free_step = true
 		attacked = false
 		return
@@ -473,7 +476,12 @@ func defend_block() -> void:
 
 
 func can_dodge() -> bool:
-	return phase == "defend" and stamina >= DODGE_COST
+	return phase == "defend" and stamina >= dodge_cost()
+
+
+## What the next dodge this boss turn costs: 1, then 2, then 3...
+func dodge_cost() -> int:
+	return DODGE_COST * (dodges + 1)
 
 
 ## Where a dodge can land: stay put, or one hex.
@@ -489,7 +497,8 @@ func dodge_hexes() -> Array[Vector2i]:
 func defend_dodge(c: Vector2i, ok: bool) -> void:
 	if not can_dodge() or not c in dodge_hexes():
 		return
-	stamina -= DODGE_COST
+	stamina -= dodge_cost()
+	dodges += 1
 	hero = c
 	if ok:
 		events.append({"type": "dodged"})

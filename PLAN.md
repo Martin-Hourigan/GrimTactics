@@ -13,9 +13,14 @@ my guess, for Martin to change. Run it with play.bat.
 - **Hex tiles.** The boss faces one of 6 directions and turns 60 degrees at
   a time.
 - **Two bars:** health and stamina, separate.
-  - Stamina refills fully at the start of your turn. Attacks, extra steps
-    and dodges spend it. What you leave unspent is what you have to dodge
-    with on the boss's turn.
+  - Stamina only partly refills at the start of your turn (changed
+    2026-11-14: a full refill made attacking, moving and dodging every hit
+    trivial). Attacks, extra steps and dodges spend it. What you leave
+    unspent is what you have to dodge with on the boss's turn, and
+    overspending leaves you short next turn too.
+  - Dodges get dearer within one boss turn: the first costs 1, the second
+    2, the third 3 (agreed 2026-11-14).
+  - Every attack costs at least 1 stamina (agreed 2026-11-14).
   - Health only goes down from hits and only comes back with a flask.
 - **Dice are kept** for attacks and blocks, and the odds are shown before
   you commit.
@@ -32,7 +37,7 @@ my guess, for Martin to change. Run it with play.bat.
   stamina.
 - **Weapons** have a few attack options, each with a stamina cost and dice.
   Block takes away a roll from the hit's damage.
-- **Blocking** costs no stamina; dodging costs 1 (PLACEHOLDER).
+- **Blocking** costs no stamina.
 - **Boss arcs:** front (the 1 hex it faces), left and right (2 hexes each),
   back (1 hex). Further out, hexes on the line between two arcs count as
   both.
@@ -99,12 +104,13 @@ decide what you can use. No separate spell bar.
 ## Step 1 as built (all numbers PLACEHOLDER)
 - Room: 37 hexes (radius 3). The hero starts at the bottom edge, the boss in
   the middle facing it. The hero goes first.
-- Hero: health 20, stamina 5, 2 flasks healing 10 each (drunk on your turn,
+- Hero: health 20, a stamina bar of 6 (starts full, +2 each turn), 2
+  flasks healing 10 each (drunk on your turn,
   free). One attack a turn, from next to the boss. Moving and attacking in
   any order.
 - Dice: black 0,1,1,1,2,2; blue 1,1,2,2,2,3. Buttons show lowest-highest
   and average damage.
-- Longsword: Slash 0 stamina (2 black), Heavy slash 2 (black + blue);
+- Longsword: Slash 1 stamina (2 black), Heavy slash 2 (black + blue);
   the shield adds a black block die.
   Claymore: Swing 1 (black + blue), Heavy swing 3 (black + 2 blue); no
   shield.

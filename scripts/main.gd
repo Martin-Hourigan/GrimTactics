@@ -424,8 +424,10 @@ func _draw_panel() -> void:
 		_text("Block", r.position + Vector2(6, 14), TEXT)
 		_text(_odds(Fight.block_odds(inc.dmg, fight.block_dice())), r.position + Vector2(96, 14), TEXT)
 		_box(_button(2), "Dodge", fight.can_dodge(), picking_dodge)
-		if fight.can_dodge():
-			draw_rect(Rect2(_button(2).position + Vector2(140, 9), Vector2(3, 3)), TEXT)
+		var dc := fight.dodge_cost()
+		var dcol := TEXT if fight.can_dodge() else DIM
+		for k in dc:
+			draw_rect(Rect2(_button(2).position + Vector2(140 + k * 5, 9), Vector2(3, 3)), dcol)
 
 
 func _draw_check() -> void:
