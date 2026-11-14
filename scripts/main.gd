@@ -37,6 +37,8 @@ var auto := 0  ## --auto N: a bot plays N hero turns (for screenshots)
 var update_state := "idle"  ## idle, checking, latest, new, failed, downloading, ready, download_failed
 var update_url := ""
 var update_page := ""
+var update_asked := false  ## the player tapped to check, so say if nothing turned up
+var update_note := 0.0  ## seconds left showing "No new version"
 var download: HTTPRequest
 var update_tag := ""
 var http: HTTPRequest
@@ -84,6 +86,7 @@ static func hex_pos(c: Vector2i) -> Vector2:
 func _process(delta: float) -> void:
 	t += delta
 	flash = maxf(0.0, flash - delta)
+	update_note = maxf(0.0, update_note - delta)
 	if screen == "fight":
 		_tick(delta)
 	for p in popups:
@@ -205,6 +208,9 @@ func _on_release(result: int, code: int, _headers: PackedStringArray, body: Pack
 	update_url = rel.url
 	update_page = rel.page
 	update_state = "new" if Update.newer(update_tag, Update.current()) else "latest"
+	if update_state == "latest" and update_asked:
+		update_note = 2.0
+	update_asked = false
 
 
 ## Download the new APK in the game, then hand it to Android's installer.
@@ -233,7 +239,7 @@ func _update_label() -> String:
 		"checking":
 			return "Checking..."
 		"latest":
-			return "Up to date"
+			return "No new version" if update_note > 0.0 else "Check for updates"
 		"new":
 			return "Update to " + update_tag
 		"downloading":
@@ -265,6 +271,7 @@ func _menu_tap(p: Vector2) -> void:
 			"checking", "downloading":
 				pass
 			_:
+				update_asked = true
 				_check_update()
 		return
 	var keys := Fight.WEAPONS.keys()
@@ -374,7 +381,7 @@ func _draw_menu() -> void:
 	_box(_fight_button(), "FIGHT", true)
 	_text("v" + Update.current(), Vector2(8, 258), DIM)
 	var lit := update_state in ["new", "downloading", "ready", "download_failed"]
-	_box(_update_button(), _update_label(), lit, lit)
+	_box(_update_button(), _update_label(), update_state != "checking", lit)
 
 
 func _hex_poly(c: Vector2, r: float) -> PackedVector2Array:
