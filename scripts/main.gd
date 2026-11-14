@@ -34,8 +34,10 @@ var shot := ""
 var shot_at := 60
 var frames := 0
 var auto := 0  ## --auto N: a bot plays N hero turns (for screenshots)
-var update_state := "idle"  ## idle, checking, latest, new, failed
+var update_state := "idle"  ## idle, checking, latest, new, failed, downloading, ready, download_failed
 var update_url := ""
+var update_page := ""
+var download: HTTPRequest
 var update_tag := ""
 var http: HTTPRequest
 var shot_dodge := false  ## --dodge: the bot opens the dodge check instead (for screenshots)
@@ -61,6 +63,9 @@ func _ready() -> void:
 	if "--fight" in args or auto > 0:
 		start()
 	font = ThemeDB.fallback_font
+	# an update downloaded last time has been installed (or given up on)
+	if FileAccess.file_exists(Update.APK):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(Update.APK))
 	_check_update()
 
 
@@ -198,7 +203,49 @@ func _on_release(result: int, code: int, _headers: PackedStringArray, body: Pack
 		return
 	update_tag = rel.tag
 	update_url = rel.url
+	update_page = rel.page
 	update_state = "new" if Update.newer(update_tag, Update.current()) else "latest"
+
+
+## Download the new APK in the game, then hand it to Android's installer.
+func _download_update() -> void:
+	if download == null:
+		download = HTTPRequest.new()
+		download.use_threads = true
+		download.download_file = Update.APK
+		add_child(download)
+		download.request_completed.connect(_on_downloaded)
+	update_state = "downloading"
+	if download.request(update_url, ["User-Agent: GrimTactics"]) != OK:
+		update_state = "download_failed"
+
+
+func _on_downloaded(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or not FileAccess.file_exists(Update.APK):
+		update_state = "download_failed"
+		return
+	update_state = "ready"
+	Update.install()
+
+
+func _update_label() -> String:
+	match update_state:
+		"checking":
+			return "Checking..."
+		"latest":
+			return "Up to date"
+		"new":
+			return "Update to " + update_tag
+		"downloading":
+			var size := download.get_body_size()
+			if size > 0:
+				return "Downloading %d%%" % (100 * download.get_downloaded_bytes() / size)
+			return "Downloading..."
+		"ready":
+			return "Install " + update_tag
+		"download_failed":
+			return "Download failed, retry"
+	return "Check for updates"
 
 
 func _update_button() -> Rect2:
@@ -207,10 +254,18 @@ func _update_button() -> Rect2:
 
 func _menu_tap(p: Vector2) -> void:
 	if _update_button().has_point(p):
-		if update_state == "new":
-			OS.shell_open(update_url)
-		elif update_state != "checking":
-			_check_update()
+		match update_state:
+			"new", "download_failed":
+				if OS.get_name() == "Android":
+					_download_update()
+				else:
+					OS.shell_open(update_page)
+			"ready":
+				Update.install()
+			"checking", "downloading":
+				pass
+			_:
+				_check_update()
 		return
 	var keys := Fight.WEAPONS.keys()
 	for i in keys.size():
@@ -318,9 +373,8 @@ func _draw_menu() -> void:
 		_box(_menu_button(1, i), Fight.ARMOURS[keys[i]].label, true, keys[i] == armour)
 	_box(_fight_button(), "FIGHT", true)
 	_text("v" + Update.current(), Vector2(8, 258), DIM)
-	var label: String = {"idle": "Check for updates", "checking": "Checking...", "latest": "Up to date",
-		"new": "Update to " + update_tag, "failed": "Check for updates"}[update_state]
-	_box(_update_button(), label, update_state == "new", update_state == "new")
+	var lit := update_state in ["new", "downloading", "ready", "download_failed"]
+	_box(_update_button(), _update_label(), lit, lit)
 
 
 func _hex_poly(c: Vector2, r: float) -> PackedVector2Array:

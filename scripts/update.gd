@@ -2,6 +2,7 @@ class_name Update
 ## Checking GitHub for a newer release of the game.
 
 const API := "https://api.github.com/repos/Martin-Hourigan/GrimTactics/releases/latest"
+const APK := "user://update.apk"  ## where a downloaded update waits for the installer
 
 
 ## This build's version, e.g. "0.2" (from the project settings).
@@ -21,15 +22,19 @@ static func newer(a: String, b: String) -> bool:
 	return false
 
 
-## From the GitHub latest-release reply: {tag, url}, the url being the APK if
-## there is one, otherwise the release page. Empty if the reply isn't usable.
+## From the GitHub latest-release reply: {tag, url, page}: the APK link and the
+## release page. Empty if the reply isn't usable or has no APK.
 static func read_release(body: String) -> Dictionary:
 	var d: Variant = JSON.parse_string(body)
 	if typeof(d) != TYPE_DICTIONARY or not d.has("tag_name"):
 		return {}
-	var url: String = d.get("html_url", "")
 	for a in d.get("assets", []):
 		if str(a.get("name", "")).ends_with(".apk"):
-			url = a.browser_download_url
-			break
-	return {"tag": d.tag_name, "url": url}
+			return {"tag": d.tag_name, "url": a.browser_download_url, "page": d.get("html_url", "")}
+	return {}
+
+
+## Hand a downloaded APK to Android's installer, which asks "update this app?".
+## (Godot opens local files through its file provider, so the system can read it.)
+static func install() -> void:
+	OS.shell_open(ProjectSettings.globalize_path(APK))
