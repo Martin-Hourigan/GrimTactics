@@ -66,8 +66,10 @@ my guess, for Martin to change. Run it with play.bat.
 3. Levelling and gear.
 
 ## Look
-- Minimal pixel art on black, 1-2 colours per character (PLACEHOLDER, like
-  Party).
+- Minimal pixel art on black, 1-2 colours per character (PLACEHOLDER). The
+  hero is drawn the same way as the boss (top down, holding the chosen
+  weapon, turned to face the boss); the boss is drawn bigger. Hexes are
+  radius 18. Sizes PLACEHOLDER.
 - Only 2 facings drawn, the other 4 are mirror flips; nothing rotated.
 
 ## Platform

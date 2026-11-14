@@ -214,7 +214,9 @@ static func run() -> int:
 	print("art")
 	var img := Art.boss_image(0)
 	check(img.get_width() == 2 * Art.R, "boss image drawn")
-	check(Art.boss_image(3).get_pixel(2 * Art.R - 1 - 20, Art.R) == img.get_pixel(20, Art.R), "facing left is a mirror of facing right")
+	check(Art.boss_image(3).get_pixel(2 * Art.R - 1 - 25, Art.R) == img.get_pixel(25, Art.R), "facing left is a mirror of facing right")
+	check(Art.hero_image(0, "longsword").get_width() == 2 * Art.HR and Art.hero_image(1, "claymore").get_width() == 2 * Art.HR, "hero drawn with each weapon")
+	check(Art.hero_image(0, "longsword").get_data() != Art.hero_image(0, "claymore").get_data(), "the two weapons look different")
 
 	print("PASS" if fails == 0 else "%d FAILED" % fails)
 	return fails

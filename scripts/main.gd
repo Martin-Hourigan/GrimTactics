@@ -2,8 +2,8 @@ extends Node2D
 ## The game on screen: pick a weapon and armour, then the fight.
 ## Everything is a left click (or Space for the dodge check), so it can move to a phone later.
 
-const CENTRE := Vector2(160, 138)
-const HR := 15.0  ## hex radius
+const CENTRE := Vector2(156, 138)
+const HR := 18.0  ## hex radius
 const BOSS_STEP := 0.45  ## seconds between the steps of the boss's card
 const HEX := Color("1c1c22")
 const HEX_REACH := Color("2c2c36")
@@ -317,8 +317,17 @@ func _draw_room() -> void:
 	_draw_arc_lines()
 	var bp := hex_pos(fight.boss)
 	draw_texture(Art.boss(fight.facing), bp - Vector2(Art.R, Art.R))
-	var hp := hex_pos(fight.hero)
-	Art.hero(Vector2i(hp), 1 if hp.x < bp.x else -1, self)
+	draw_texture(Art.hero(_hero_facing(), fight.weapon), hex_pos(fight.hero) - Vector2(Art.HR, Art.HR))
+
+
+## The hero turns to whichever of the 6 directions points most at the boss.
+func _hero_facing() -> int:
+	var to := Fight.flat(fight.boss - fight.hero).normalized()
+	var best := 0
+	for i in 6:
+		if Fight.flat(Fight.DIRS[i]).dot(to) > Fight.flat(Fight.DIRS[best]).dot(to):
+			best = i
+	return best
 
 
 ## The lines between the boss's four arcs.
@@ -379,10 +388,10 @@ func _draw_panel() -> void:
 
 
 func _draw_check() -> void:
-	var r := Rect2(130, 226, 220, 30)
+	var r := Rect2(298, 232, 176, 30)
 	draw_rect(r, PANEL)
 	draw_rect(r, TEXT, false, 1.0)
-	var bar := Rect2(140, 236, 200, 10)
+	var bar := Rect2(306, 242, 160, 10)
 	draw_rect(bar, OFF)
 	var s: Vector2 = check.sweet
 	draw_rect(Rect2(bar.position.x + roundf(bar.size.x * s.x), bar.position.y, maxf(1.0, roundf(bar.size.x * (s.y - s.x))), bar.size.y), GOOD.darkened(0.4))
