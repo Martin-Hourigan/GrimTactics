@@ -1,0 +1,117 @@
+# GrimTactics (working title) - plan
+
+A turn-based hex tactics game with a Dark Souls feel: one hero against a
+boss, using some mechanics from the Dark Souls board game, made digital.
+It is its own game, with its own names and content.
+
+Step 1 is built (2026-11-14), unplayed. Everything marked (PLACEHOLDER) is
+my guess, for Martin to change. Run it with play.bat.
+
+## Agreed
+- **One hero**, no party. Enemy numbers are set for one hero (PLACEHOLDER,
+  Martin balances).
+- **Hex tiles.** The boss faces one of 6 directions and turns 60 degrees at
+  a time.
+- **Two bars:** health and stamina, separate.
+  - Stamina refills fully at the start of your turn. Attacks, extra steps
+    and dodges spend it. What you leave unspent is what you have to dodge
+    with on the boss's turn.
+  - Health only goes down from hits and only comes back with a flask.
+- **Dice are kept** for attacks and blocks, and the odds are shown before
+  you commit.
+- **Dodging is a timing check, one per attack.** A small window pops up
+  with a bar that fills, speeding up as it nears the sweet spot. Tap in the
+  sweet spot and the attack misses you completely; miss it and you take the
+  full hit. Later, the window could play the attack's animation instead.
+- **Dying:** back to the bonfire, the rooms' enemies come back, and your
+  souls drop where you died. Get back there without dying again to pick
+  them up; die first and they're gone. No limit on deaths.
+
+## From the board game (to confirm)
+- **Moving:** the first step each turn is free, every extra step costs 1
+  stamina.
+- **Weapons** have a few attack options, each with a stamina cost and dice.
+  Block takes away a roll from the hit's damage.
+- **Blocking** costs no stamina; dodging costs 1 (PLACEHOLDER).
+- **Boss arcs:** front (the 1 hex it faces), left and right (2 hexes each),
+  back (1 hex). Further out, hexes on the line between two arcs count as
+  both.
+- **Boss attacks** hit whole arcs within a range. The boss only turns when it
+  moves, never when it attacks, so you can be safe just by being in the
+  right arc.
+- **Weak arcs:** each boss attack leaves some arcs weak. Hitting from a weak
+  arc adds an extra die.
+- **Behaviour deck:** a few of the boss's cards are dealt and shuffled. When
+  they run out they're played again in the same order, so you can learn the
+  pattern.
+- **Heat up:** at a set health, one extra card is shuffled in.
+- **Pushes:** some attacks push you a hex away from the boss.
+- **The boss** takes up one hex, and you can't enter it.
+- **Gone with the party:** aggro and taunt (the boss always goes for you).
+
+## The dodge check (PLACEHOLDER details)
+- You choose the hex you dodge to first (1 hex), then the window opens.
+- The attack sets how hard it is: a narrower sweet spot and a faster bar for
+  a quicker attack.
+- Lighter armour gives a wider sweet spot.
+- One tap. No half dodge.
+- While the window is open the game waits for you.
+
+## Steps
+1. **One fight:** one hero, one boss, one small room (about 5-6 hexes
+   across). Moving, attacking, blocking, the dodge check, flask, boss arcs,
+   the behaviour deck and heat up. Dying just restarts the fight. Tests
+   check it works. BUILT 2026-11-14, unplayed.
+2. Bonfire, rooms of smaller enemies, souls dropped and picked up.
+3. Levelling and gear.
+
+## Look
+- Minimal pixel art on black, 1-2 colours per character (PLACEHOLDER, like
+  Party).
+- Only 2 facings drawn, the other 4 are mirror flips; nothing rotated.
+
+## Platform
+PC first, mouse clicks only (no hover-only info, no keyboard-only actions),
+so the same layout can go onto a phone later.
+
+## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
+- **Longsword and shield:** one-handed sword, shield adds block dice.
+- **Claymore:** two-handed, no shield, bigger hits.
+- **Light armour / heavy armour:** to test the dodge window. Light = wider
+  sweet spot, fewer block dice; heavy = narrower sweet spot, more block
+  dice.
+
+## Magic (agreed 2026-11-14, not in step 1)
+Board game style: spells cost stamina like any attack, magic damage is its
+own type that goes against Resist instead of Block, Intelligence and Faith
+decide what you can use. No separate spell bar.
+
+## Step 1 as built (all numbers PLACEHOLDER)
+- Room: 37 hexes (radius 3). The hero starts at the bottom edge, the boss in
+  the middle facing it. The hero goes first.
+- Hero: health 20, stamina 5, 2 flasks healing 10 each (drunk on your turn,
+  free). One attack a turn, from next to the boss. Moving and attacking in
+  any order.
+- Dice: black 0,1,1,1,2,2; blue 1,1,2,2,2,3. Buttons show lowest-highest
+  and average damage.
+- Longsword: Slash 0 stamina (2 black), Heavy slash 2 (black + blue);
+  the shield adds a black block die.
+  Claymore: Swing 1 (black + blue), Heavy swing 3 (black + 2 blue); no
+  shield.
+- Light armour: 1 black block die, sweet spot x1.4. Heavy: black + blue,
+  sweet spot x0.7.
+- Dodge check: the bar fills in 1.3 / 1.1 / 0.9 s (dodge difficulty 1-3),
+  speeding up; the sweet spot starts 72% along and is 16 / 12 / 8% wide
+  before armour. Click or Space to stop it.
+- Boss (a knight with sword and shield): health 40, block 1, heats up at
+  18. Deck of 4 dealt from 6 cards: Lunge, Sweep, Turn and cut, Overhead,
+  Shield bash, Step back thrust. Heat up adds Leap or Flurry. The next card
+  is face down; the last one stays showing, and its weak arcs are tinted
+  green on your turn.
+- The boss can't be stood on, so a leap lands next to you rather than on
+  you; moving towards you stops next to you and turns to face you.
+- After the fight (win or lose), a click goes back to the gear choice.
+
+## Questions for Martin
+- The first boss: a placeholder knight for now. Yours to redesign.
+- Should the next boss card be shown, or stay face down (board game)?
