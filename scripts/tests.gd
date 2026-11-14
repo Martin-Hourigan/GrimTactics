@@ -232,6 +232,14 @@ static func run() -> int:
 	check(Art.hero_image(0, "longsword").get_width() == 2 * Art.HR and Art.hero_image(1, "claymore").get_width() == 2 * Art.HR, "hero drawn with each weapon")
 	check(Art.hero_image(0, "longsword").get_data() != Art.hero_image(0, "claymore").get_data(), "the two weapons look different")
 
+	print("updates")
+	check(Update.newer("v0.3", "0.2") and not Update.newer("v0.2", "0.2") and not Update.newer("v0.1", "0.2"), "compares versions")
+	check(Update.newer("v0.10", "0.9") and Update.newer("v1.0", "0.9.9"), "numbers, not letters")
+	var rel := Update.read_release('{"tag_name": "v0.3", "html_url": "page", "assets": [{"name": "GrimTactics.apk", "browser_download_url": "apk"}]}')
+	check(rel.tag == "v0.3" and rel.url == "apk", "reads the APK link from a release")
+	check(Update.read_release("not json").is_empty(), "ignores a bad reply")
+	check(Update.current() != "0.0", "this build has a version")
+
 	print("PASS" if fails == 0 else "%d FAILED" % fails)
 	return fails
 

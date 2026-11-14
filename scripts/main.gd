@@ -34,6 +34,10 @@ var shot := ""
 var shot_at := 60
 var frames := 0
 var auto := 0  ## --auto N: a bot plays N hero turns (for screenshots)
+var update_state := "idle"  ## idle, checking, latest, new, failed
+var update_url := ""
+var update_tag := ""
+var http: HTTPRequest
 var shot_dodge := false  ## --dodge: the bot opens the dodge check instead (for screenshots)
 
 
@@ -57,6 +61,7 @@ func _ready() -> void:
 	if "--fight" in args or auto > 0:
 		start()
 	font = ThemeDB.fallback_font
+	_check_update()
 
 
 func start() -> void:
@@ -174,7 +179,39 @@ func _unhandled_input(ev: InputEvent) -> void:
 		_hero_tap(p)
 
 
+func _check_update() -> void:
+	if http == null:
+		http = HTTPRequest.new()
+		add_child(http)
+		http.request_completed.connect(_on_release)
+	update_state = "checking"
+	if http.request(Update.API, ["User-Agent: GrimTactics", "Accept: application/vnd.github+json"]) != OK:
+		update_state = "failed"
+
+
+func _on_release(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	var rel := {}
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+		rel = Update.read_release(body.get_string_from_utf8())
+	if rel.is_empty():
+		update_state = "failed"
+		return
+	update_tag = rel.tag
+	update_url = rel.url
+	update_state = "new" if Update.newer(update_tag, Update.current()) else "latest"
+
+
+func _update_button() -> Rect2:
+	return Rect2(330, 240, 142, 22)
+
+
 func _menu_tap(p: Vector2) -> void:
+	if _update_button().has_point(p):
+		if update_state == "new":
+			OS.shell_open(update_url)
+		elif update_state != "checking":
+			_check_update()
+		return
 	var keys := Fight.WEAPONS.keys()
 	for i in keys.size():
 		if _menu_button(0, i).has_point(p):
@@ -280,6 +317,10 @@ func _draw_menu() -> void:
 	for i in keys.size():
 		_box(_menu_button(1, i), Fight.ARMOURS[keys[i]].label, true, keys[i] == armour)
 	_box(_fight_button(), "FIGHT", true)
+	_text("v" + Update.current(), Vector2(8, 258), DIM)
+	var label: String = {"idle": "Check for updates", "checking": "Checking...", "latest": "Up to date",
+		"new": "Update to " + update_tag, "failed": "Check for updates"}[update_state]
+	_box(_update_button(), label, update_state == "new", update_state == "new")
 
 
 func _hex_poly(c: Vector2, r: float) -> PackedVector2Array:
