@@ -7,27 +7,32 @@ const ROOM := 3  ## room radius in hexes (PLACEHOLDER)
 ## Axial directions, counter-clockwise from the right. Facing f points along DIRS[f].
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)]
 
-const DICE := {  ## faces (PLACEHOLDER)
-	"black": [0, 1, 1, 1, 2, 2],
-	"blue": [1, 1, 2, 2, 2, 3],
+const DICE := {  ## block dice faces (PLACEHOLDER)
+	"black": [0, 10, 10, 10, 20, 20],
+	"blue": [10, 10, 20, 20, 20, 30],
 }
 
 # ---- hero (all PLACEHOLDER) ----
-const HERO_HP := 20
+const HERO_HP := 200
 const STAMINA := 6  ## the stamina bar; the fight starts with it full
 const STAMINA_BACK := 2  ## stamina regained at the start of every hero turn
 const REST_BONUS := 2  ## extra stamina back after a turn with no attack
 const FLASKS := 2
-const FLASK_HEAL := 10
+const FLASK_HEAL := 100
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
+const WEAK_BONUS := 10  ## extra damage from a weak arc
+const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; none after
+const RUN_STEPS := 2  ## hexes moved since the last attack that turn the first attack into a running one
+const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
+## Each weapon's first attack becomes its "run" attack after a run.
 const WEAPONS := {
 	"longsword": {"label": "Longsword & shield", "block": ["black"], "acts": [
-		{"label": "Slash", "st": 1, "dice": ["black", "black"]},
-		{"label": "Heavy slash", "st": 2, "dice": ["black", "blue"]},
+		{"label": "Slash", "st": 1, "dmg": 25, "run": "Running slash"},
+		{"label": "Heavy slash", "st": 2, "dmg": 35},
 	]},
 	"claymore": {"label": "Claymore", "block": [], "acts": [
-		{"label": "Swing", "st": 1, "dice": ["black", "blue"]},
-		{"label": "Heavy swing", "st": 3, "dice": ["black", "blue", "blue"]},
+		{"label": "Swing", "st": 1, "dmg": 35, "run": "Running swing"},
+		{"label": "Heavy swing", "st": 3, "dmg": 55},
 	]},
 }
 ## window: how wide the dodge sweet spot is
@@ -37,9 +42,9 @@ const ARMOURS := {
 }
 
 # ---- boss (all PLACEHOLDER) ----
-const BOSS_HP := 40
-const BOSS_BLOCK := 1
-const HEAT_AT := 18  ## heats up at this health or below
+const BOSS_HP := 400
+const BOSS_BLOCK := 10
+const HEAT_AT := 180  ## heats up at this health or below
 const DECK_SIZE := 4
 ## Behaviour cards. Steps run left to right:
 ##   move n (towards the hero, or away if negative), turn k (60 degrees each,
@@ -48,18 +53,18 @@ const DECK_SIZE := 4
 ##     times and step up to this many hexes (facing kept) to bring the hero
 ##     into that attack,
 ##   attack dmg within range: the hero only, or every hex in the listed arcs.
-## dodge = how hard the dodge check is (1-3). weak = arcs that take an extra die.
+## dodge = how hard the dodge check is (1-3). weak = arcs that take extra damage.
 const CARDS := [
-	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"aim": [1, 0]}, {"attack": 5, "range": 1, "arcs": ["front"]}]},
-	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"aim": [1, 0]}, {"attack": 4, "range": 1, "arcs": ["front", "left", "right"]}]},
-	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 6, "range": 1, "arcs": ["front"], "push": true}]},
-	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 8, "range": 1, "arcs": ["front"]}]},
-	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"aim": [2, 1]}, {"attack": 3, "range": 1, "arcs": ["front"], "push": true}]},
-	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"aim": [1, 0]}, {"attack": 5, "range": 2, "arcs": ["front"]}]},
+	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"aim": [1, 0]}, {"attack": 50, "range": 1, "arcs": ["front"]}]},
+	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"aim": [1, 0]}, {"attack": 40, "range": 1, "arcs": ["front", "left", "right"]}]},
+	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 60, "range": 1, "arcs": ["front"], "push": true}]},
+	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 80, "range": 1, "arcs": ["front"]}]},
+	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"aim": [2, 1]}, {"attack": 30, "range": 1, "arcs": ["front"], "push": true}]},
+	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"aim": [1, 0]}, {"attack": 50, "range": 2, "arcs": ["front"]}]},
 ]
 const HEAT_CARDS := [
-	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 6, "range": 1, "arcs": ["front", "left", "right", "back"]}]},
-	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 4, "range": 1, "arcs": ["front"]}]},
+	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 60, "range": 1, "arcs": ["front", "left", "right", "back"]}]},
+	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 40, "range": 1, "arcs": ["front"]}]},
 ]
 
 var weapon: String
@@ -71,6 +76,8 @@ var flasks := FLASKS
 var hero := Vector2i(0, 3)
 var free_step := true
 var attacked := false
+var hits := 0  ## hits in a row this turn without moving
+var run := 0  ## hexes moved since the last attack this turn
 var boss := Vector2i.ZERO
 var facing := 5
 var boss_hp := BOSS_HP
@@ -192,11 +199,6 @@ static func spread(dice: Array) -> Dictionary:
 	return out
 
 
-## Lowest, highest and average damage when these dice attack something with this block.
-static func hit_odds(dice: Array, block: int) -> Dictionary:
-	return _odds(spread(dice), func(total): return maxi(0, total - block))
-
-
 ## Lowest, highest and average damage taken from dmg when blocking with these dice.
 static func block_odds(dmg: int, dice: Array) -> Dictionary:
 	return _odds(spread(dice), func(total): return maxi(0, dmg - total))
@@ -241,6 +243,8 @@ func move(c: Vector2i) -> void:
 	if not can_move(c):
 		return
 	stamina -= move_cost(c)
+	run += steps(c)
+	hits = 0
 	free_step = false
 	hero = c
 
@@ -257,12 +261,27 @@ func weak_at(c: Vector2i) -> bool:
 	return false
 
 
-## The dice attack i would roll from where the hero stands now.
-func attack_dice(i: int) -> Array:
-	var dice: Array = WEAPONS[weapon].acts[i].dice.duplicate()
-	if weak():
-		dice.append("black")
-	return dice
+## Whether attack i would be a running attack now.
+func running(i: int) -> bool:
+	return WEAPONS[weapon].acts[i].has("run") and run >= RUN_STEPS
+
+
+func attack_label(i: int) -> String:
+	var a: Dictionary = WEAPONS[weapon].acts[i]
+	return a.run if running(i) else a.label
+
+
+## The damage bonus attack i gets now: running, or its place in the combo.
+func attack_bonus(i: int) -> float:
+	if running(i):
+		return RUN_BONUS
+	return COMBO[hits] if hits < COMBO.size() else 0.0
+
+
+## The damage attack i does to the boss from where the hero stands now.
+func attack_damage(i: int) -> int:
+	var dmg: int = WEAPONS[weapon].acts[i].dmg + (WEAK_BONUS if weak() else 0)
+	return maxi(0, roundi(dmg * (1.0 + attack_bonus(i))) - BOSS_BLOCK)
 
 
 func can_attack(i: int) -> bool:
@@ -273,13 +292,13 @@ func can_attack(i: int) -> bool:
 func attack(i: int) -> void:
 	if not can_attack(i):
 		return
+	var dmg := attack_damage(i)
 	stamina -= WEAPONS[weapon].acts[i].st
 	attacked = true
-	var dice := attack_dice(i)
-	var total := roll(dice)
-	var dmg := maxi(0, total - BOSS_BLOCK)
+	hits = 1 if running(i) else hits + 1
+	run = 0
 	boss_hp = maxi(0, boss_hp - dmg)
-	events.append({"type": "hit_boss", "dmg": dmg, "rolled": total})
+	events.append({"type": "hit_boss", "dmg": dmg})
 	if boss_hp <= 0:
 		phase = "win"
 		return
@@ -329,6 +348,8 @@ func step() -> void:
 		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
 		free_step = true
 		attacked = false
+		hits = 0
+		run = 0
 		return
 	var s: Dictionary = queue.pop_front()
 	if s.has("move"):

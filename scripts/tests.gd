@@ -69,15 +69,13 @@ static func run() -> int:
 	f.facing = 3
 	check(f.arcs_of(Vector2i(1, 0)) == ["back"], "turned round, front becomes back")
 
-	print("dice and odds")
-	var o := Fight.hit_odds(["black", "black"], 1)
-	check(o.min == 0 and o.max == 3, "two black dice against block 1 hit for 0-3")
+	print("block dice and odds")
 	var sp := Fight.spread(["black"])
 	var total := 0.0
 	for k in sp:
 		total += sp[k]
 	check(absf(total - 1.0) < 0.0001, "chances add up to 1")
-	check(Fight.block_odds(5, ["blue"]).max == 4 and Fight.block_odds(5, ["blue"]).min == 2, "blocking 5 with a blue die takes 2-4")
+	check(Fight.block_odds(50, ["blue"]).max == 40 and Fight.block_odds(50, ["blue"]).min == 20, "blocking 50 with a blue die takes 20-40")
 
 	print("moving")
 	f = Fight.new("longsword", "light", 1)
@@ -100,11 +98,42 @@ static func run() -> int:
 	f.hero = Vector2i(0, 1)
 	f.card = {"weak": ["back"]}
 	f.facing = 2  # faces up-left, so (0, 1) is behind it
-	check(f.weak() and f.attack_dice(0).size() == 3, "a weak arc adds a black die")
+	var base: int = Fight.WEAPONS.claymore.acts[0].dmg
+	check(f.weak() and f.attack_damage(0) == base + Fight.WEAK_BONUS - Fight.BOSS_BLOCK, "a weak arc adds damage")
 	f.facing = 5
-	check(not f.weak() and f.attack_dice(0).size() == 2, "not weak from the front")
+	check(not f.weak() and f.attack_damage(0) == base - Fight.BOSS_BLOCK, "not weak from the front, and no dice")
 	f.stamina = 2
 	check(not f.can_attack(1), "the heavy swing needs 3 stamina")
+
+	print("combos and running attacks")
+	f = Fight.new("longsword", "light", 1)
+	f.hero = f.boss + Fight.DIRS[0]
+	f.facing = 0
+	base = Fight.WEAPONS.longsword.acts[0].dmg
+	var dealt: Array[int] = []
+	for k in 4:
+		var hp0 := f.boss_hp
+		f.attack(0)
+		dealt.append(hp0 - f.boss_hp)
+	check(dealt[0] == base - Fight.BOSS_BLOCK, "the first hit has no bonus")
+	check(dealt[1] == roundi(base * 1.1) - Fight.BOSS_BLOCK, "the second hit +10%")
+	check(dealt[2] == roundi(base * 1.2) - Fight.BOSS_BLOCK, "the third hit +20%")
+	check(dealt[3] == dealt[0], "no bonus after the third")
+	f.stamina = Fight.STAMINA
+	f.move(f.boss + Fight.DIRS[1])
+	check(f.attack_bonus(0) == 0.0 and not f.running(0), "a step breaks the combo, one step isn't a run")
+	f = Fight.new("longsword", "light", 1)
+	f.hero = f.boss + Fight.DIRS[3] * 3
+	f.move(f.boss + Fight.DIRS[3])
+	check(f.running(0) and not f.running(1), "two hexes moved turns the first attack into a running one")
+	check(f.attack_label(0) == "Running slash" and f.attack_damage(0) == roundi(base * 1.2) - Fight.BOSS_BLOCK, "running slash +20%")
+	f.attack(0)
+	check(not f.running(0) and f.attack_bonus(0) == 0.1, "after a running attack the next hit is the second in the combo")
+	f.attack(0)
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.hits == 0 and f.run == 0, "a new turn starts a new combo")
 
 	print("behaviour deck")
 	f = Fight.new("longsword", "light", 3)
@@ -170,23 +199,23 @@ static func run() -> int:
 	check(f.phase == "defend" and f.facing == 0, "already lined up, it doesn't turn")
 
 	print("blocking and dodging")
-	f = _attacked("longsword", "light", 6, false)
-	check(f.phase == "defend" and f.incoming.dmg == 6, "standing in the attack has to be defended")
+	f = _attacked("longsword", "light", 60, false)
+	check(f.phase == "defend" and f.incoming.dmg == 60, "standing in the attack has to be defended")
 	var hp := f.hp
 	f.defend_block()
-	check(f.hp >= hp - 6 and f.hp <= hp - 6 + 4, "blocking takes off what it rolled")
+	check(f.hp >= hp - 60 and f.hp <= hp - 60 + 40, "blocking takes off what it rolled")
 	check(f.phase == "boss", "then the boss carries on")
-	f = _attacked("longsword", "light", 6, false)
+	f = _attacked("longsword", "light", 60, false)
 	var to: Vector2i = f.dodge_hexes()[1]
 	f.defend_dodge(to, true)
 	check(f.hp == Fight.HERO_HP and f.hero == to and f.stamina == Fight.STAMINA - 1, "a good dodge takes nothing, moves and costs 1 stamina")
-	f = _attacked("longsword", "light", 6, false)
+	f = _attacked("longsword", "light", 60, false)
 	f.defend_dodge(f.hero, false)
-	check(f.hp == Fight.HERO_HP - 6, "a missed dodge takes the full hit")
-	f = _attacked("longsword", "light", 6, false)
+	check(f.hp == Fight.HERO_HP - 60, "a missed dodge takes the full hit")
+	f = _attacked("longsword", "light", 60, false)
 	f.stamina = 0
 	check(not f.can_dodge(), "no stamina, no dodge")
-	f = _attacked("longsword", "light", 6, true)
+	f = _attacked("longsword", "light", 60, true)
 	var d0 := Fight.dist(f.hero, f.boss)
 	f.defend_block()
 	check(Fight.dist(f.hero, f.boss) == d0 + 1, "a push moves it a hex away")
@@ -257,9 +286,9 @@ static func run() -> int:
 	print("flask")
 	f = Fight.new("longsword", "light", 1)
 	check(not f.can_flask(), "no flask at full health")
-	f.hp = 5
+	f.hp = 50
 	f.flask()
-	check(f.hp == 5 + Fight.FLASK_HEAL and f.flasks == Fight.FLASKS - 1, "a flask heals")
+	check(f.hp == 50 + Fight.FLASK_HEAL and f.flasks == Fight.FLASKS - 1, "a flask heals")
 
 	print("whole fights")
 	var ended := 0

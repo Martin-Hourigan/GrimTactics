@@ -471,10 +471,10 @@ func _draw_panel() -> void:
 			var ok := fight.can_attack(i)
 			_box(r, "", ok)
 			var c := TEXT if ok else DIM
-			_text(a.label, r.position + Vector2(6, 14), c)
+			_text(fight.attack_label(i), r.position + Vector2(6, 14), c)
 			for k in a.st:
-				draw_rect(Rect2(r.position + Vector2(70 + k * 5, 9), Vector2(3, 3)), c)
-			_text(_odds(Fight.hit_odds(fight.attack_dice(i), Fight.BOSS_BLOCK)), r.position + Vector2(96, 14), c)
+				draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), c)
+			_text(str(fight.attack_damage(i)), r.position + Vector2(140, 14), c)
 		_box(_button(2), "Flask", fight.can_flask())
 		_box(_button(3), "End turn", true)
 	elif fight.phase == "defend" and check.is_empty():

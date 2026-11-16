@@ -25,8 +25,15 @@ my guess, for Martin to change. Run it with play.bat.
     attack gives extra stamina back (agreed 2026-11-16: one attack and a
     dodge kept back every turn was too easy).
   - Health only goes down from hits and only comes back with a flask.
-- **Dice are kept** for attacks and blocks, and the odds are shown before
-  you commit.
+- **Attacks do set damage, no dice** (changed 2026-11-17: Dark Souls'
+  predictable damage is better). Blocks still roll dice, with the odds
+  shown before you commit.
+- **Combos** (agreed 2026-11-17): the 2nd hit in a row does +10%, the 3rd
+  +20%; only those 3 hits (some weapons may change this later). Moving or
+  the end of your turn breaks the combo.
+- **Running attack** (agreed 2026-11-17): after moving 2 hexes, the
+  standard attack becomes a running attack with +20%. It counts as the 1st
+  hit of a combo, so the next hit is +10% again.
 - **Dodging is a timing check, one per attack.** A small window pops up
   with a bar that fills, speeding up as it nears the sweet spot. Tap in the
   sweet spot and the attack misses you completely; miss it and you take the
@@ -38,7 +45,7 @@ my guess, for Martin to change. Run it with play.bat.
 ## From the board game (to confirm)
 - **Moving:** the first step each turn is free, every extra step costs 1
   stamina.
-- **Weapons** have a few attack options, each with a stamina cost and dice.
+- **Weapons** have a few attack options, each with a stamina cost and damage.
   Block takes away a roll from the hit's damage.
 - **Blocking** costs no stamina.
 - **Boss arcs:** front (the 1 hex it faces), left and right (2 hexes each),
@@ -48,7 +55,7 @@ my guess, for Martin to change. Run it with play.bat.
   moves, never when it attacks, so you can be safe just by being in the
   right arc.
 - **Weak arcs:** each boss attack leaves some arcs weak. Hitting from a weak
-  arc adds an extra die.
+  arc adds extra damage.
 - **Behaviour deck:** a few of the boss's cards are dealt and shuffled. When
   they run out they're played again in the same order, so you can learn the
   pattern.
@@ -107,23 +114,28 @@ decide what you can use. No separate spell bar.
 ## Step 1 as built (all numbers PLACEHOLDER)
 - Room: 37 hexes (radius 3). The hero starts at the bottom edge, the boss in
   the middle facing it. The hero goes first.
-- Hero: health 20, a stamina bar of 6 (starts full, +2 each turn, +4 after a turn with no attack), 2
-  flasks healing 10 each (drunk on your turn,
+- All damage and health were multiplied by 10 on 2026-11-17 so the combo
+  percentages show.
+- Hero: health 200, a stamina bar of 6 (starts full, +2 each turn, +4 after a turn with no attack), 2
+  flasks healing 100 each (drunk on your turn,
   free). Attacks from next to the boss, as many as stamina pays for. Moving and attacking in
   any order.
-- Dice: black 0,1,1,1,2,2; blue 1,1,2,2,2,3. Buttons show lowest-highest
-  and average damage.
-- Longsword: Slash 1 stamina (2 black), Heavy slash 2 (black + blue);
-  the shield adds a black block die.
-  Claymore: Swing 1 (black + blue), Heavy swing 3 (black + 2 blue); no
-  shield.
+- Block dice: black 0,10,10,10,20,20; blue 10,10,20,20,20,30. The Block
+  button shows lowest-highest and average damage taken.
+- Attack damage (before the boss's block; buttons show what lands):
+  Longsword: Slash 1 stamina 25, Heavy slash 2 stamina 35; the shield adds
+  a black block die. Claymore: Swing 1 stamina 35, Heavy swing 3 stamina
+  55; no shield. A weak arc adds 10. Bonuses are worked out on damage plus
+  the weak bonus, then the boss's block comes off.
+- Running slash / Running swing replace Slash / Swing after 2 hexes moved
+  since your last attack that turn; same stamina.
 - Light armour: 1 black block die, sweet spot x1.4. Heavy: black + blue,
   sweet spot x0.7.
 - Dodge check: the bar fills in 1.3 / 1.1 / 0.9 s (dodge difficulty 1-3),
   speeding up; the sweet spot starts 72% along and is 16 / 12 / 8% wide
   before armour. Click or Space to stop it.
-- Boss (a knight with sword and shield): health 40, block 1, heats up at
-  18. Deck of 4 dealt from 6 cards: Lunge, Sweep, Turn and cut, Overhead,
+- Boss (a knight with sword and shield): health 400, block 10, heats up at
+  180. Card attacks are 10x what they were (Lunge 50, Overhead 80...). Deck of 4 dealt from 6 cards: Lunge, Sweep, Turn and cut, Overhead,
   Shield bash, Step back thrust. Heat up adds Leap or Flurry. Aim budgets
   (turns, steps): Lunge 1,0 after moving 2; Sweep 1,0; Turn and cut 1,0
   after spinning round; Overhead 1,1; Shield bash 2,1; Step back thrust 1,0
