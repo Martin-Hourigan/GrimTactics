@@ -21,6 +21,9 @@ my guess, for Martin to change. Run it with play.bat.
   - Dodges get dearer within one boss turn: the first costs 1, the second
     2, the third 3 (agreed 2026-11-14).
   - Every attack costs at least 1 stamina (agreed 2026-11-14).
+  - As many attacks a turn as your stamina pays for, and a turn with no
+    attack gives extra stamina back (agreed 2026-11-16: one attack and a
+    dodge kept back every turn was too easy).
   - Health only goes down from hits and only comes back with a flask.
 - **Dice are kept** for attacks and blocks, and the odds are shown before
   you commit.
@@ -104,9 +107,9 @@ decide what you can use. No separate spell bar.
 ## Step 1 as built (all numbers PLACEHOLDER)
 - Room: 37 hexes (radius 3). The hero starts at the bottom edge, the boss in
   the middle facing it. The hero goes first.
-- Hero: health 20, a stamina bar of 6 (starts full, +2 each turn), 2
+- Hero: health 20, a stamina bar of 6 (starts full, +2 each turn, +4 after a turn with no attack), 2
   flasks healing 10 each (drunk on your turn,
-  free). One attack a turn, from next to the boss. Moving and attacking in
+  free). Attacks from next to the boss, as many as stamina pays for. Moving and attacking in
   any order.
 - Dice: black 0,1,1,1,2,2; blue 1,1,2,2,2,3. Buttons show lowest-highest
   and average damage.

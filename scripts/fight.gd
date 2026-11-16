@@ -16,6 +16,7 @@ const DICE := {  ## faces (PLACEHOLDER)
 const HERO_HP := 20
 const STAMINA := 6  ## the stamina bar; the fight starts with it full
 const STAMINA_BACK := 2  ## stamina regained at the start of every hero turn
+const REST_BONUS := 2  ## extra stamina back after a turn with no attack
 const FLASKS := 2
 const FLASK_HEAL := 10
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
@@ -265,7 +266,7 @@ func attack_dice(i: int) -> Array:
 
 
 func can_attack(i: int) -> bool:
-	return phase == "hero" and not attacked and dist(hero, boss) == 1 \
+	return phase == "hero" and dist(hero, boss) == 1 \
 		and stamina >= WEAPONS[weapon].acts[i].st
 
 
@@ -325,7 +326,7 @@ func step() -> void:
 		return
 	if queue.is_empty():
 		phase = "hero"
-		stamina = mini(STAMINA, stamina + STAMINA_BACK)
+		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
 		free_step = true
 		attacked = false
 		return

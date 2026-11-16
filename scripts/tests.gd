@@ -39,11 +39,15 @@ static func bot(f: Fight) -> void:
 		if best != f.hero:
 			f.move(best)
 	var acts: Array = Fight.WEAPONS[f.weapon].acts
-	for i in range(acts.size() - 1, -1, -1):
-		# keep a point back for a dodge
-		if f.can_attack(i) and f.stamina - acts[i].st >= Fight.DODGE_COST:
-			f.attack(i)
-			break
+	var hit := true
+	while hit:
+		hit = false
+		for i in range(acts.size() - 1, -1, -1):
+			# keep a point back for a dodge
+			if f.can_attack(i) and f.stamina - acts[i].st >= Fight.DODGE_COST:
+				f.attack(i)
+				hit = true
+				break
 	if not f.attacked and f.can_attack(0):
 		f.attack(0)
 	f.end_turn()
@@ -89,7 +93,8 @@ static func run() -> int:
 	print("attacking")
 	check(f.can_attack(0), "next to the boss it can attack")
 	f.attack(0)
-	check(not f.can_attack(0) and not f.can_attack(1), "one attack a turn")
+	f.stamina = 0
+	check(not f.can_attack(0) and not f.can_attack(1), "no attack without the stamina")
 	f = Fight.new("claymore", "heavy", 1)
 	check(not f.can_attack(0), "not from across the room")
 	f.hero = Vector2i(0, 1)
@@ -207,10 +212,23 @@ static func run() -> int:
 	f = Fight.new("longsword", "light", 1)
 	check(f.stamina == Fight.STAMINA, "the fight starts with full stamina")
 	f.stamina = 1
+	f.attacked = true
 	f.end_turn()
 	f.queue = []
 	f.step()
 	check(f.phase == "hero" and f.stamina == 1 + Fight.STAMINA_BACK, "a new turn gives back only a little")
+	f.stamina = 1
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.stamina == 1 + Fight.STAMINA_BACK + Fight.REST_BONUS, "a turn with no attack gives back more")
+	f.hero = f.boss + Fight.DIRS[0]
+	f.stamina = Fight.STAMINA
+	f.attack(0)
+	check(f.can_attack(0), "more than one attack a turn")
+	f.attack(0)
+	check(f.stamina == Fight.STAMINA - 2 * Fight.WEAPONS.longsword.acts[0].st, "each attack pays its stamina")
+	f.attacked = true
 	f.stamina = Fight.STAMINA - 1
 	f.end_turn()
 	f.queue = []
