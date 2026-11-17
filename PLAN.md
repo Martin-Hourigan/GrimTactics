@@ -32,6 +32,10 @@ my guess, for Martin to change. Run it with play.bat.
   +20%, then it starts again: the 4th is a 1st hit (2026-11-17). Weapon
   classes may have their own combos later. Moving or
   the end of your turn breaks the combo.
+- **Two weapon sets** (agreed 2026-11-17), picked on the menu. Swapping
+  costs 1 stamina on your turn and doesn't count as attacking, so it
+  doesn't cut your stamina back. Swapping breaks the combo (PLACEHOLDER
+  choice); a run before it still counts.
 - **Running attack** (agreed 2026-11-17): after moving 2 hexes, the
   standard attack becomes a running attack with +20%. It counts as the 1st
   hit of a combo, so the next hit is +10% again.

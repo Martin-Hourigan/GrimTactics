@@ -15,6 +15,7 @@ const REST_BONUS := 4  ## extra stamina back after a turn with no attack
 const FLASKS := 2
 const FLASK_HEAL := 100
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
+const SWAP_COST := 1  ## swapping to the other weapon set
 const WEAK_BONUS := 10  ## extra damage from a weak arc
 const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; then it starts again
 const RUN_STEPS := 2  ## hexes moved since the last attack that turn the first attack into a running one
@@ -62,7 +63,8 @@ const HEAT_CARDS := [
 	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 40, "range": 1, "arcs": ["front"]}]},
 ]
 
-var weapon: String
+var weapon: String  ## the weapon in hand
+var spare: String  ## the other weapon set; empty if there isn't one
 var armour: String
 var hp := HERO_HP
 var stamina := STAMINA
@@ -86,8 +88,9 @@ var events: Array[Dictionary] = []
 var rng := RandomNumberGenerator.new()
 
 
-func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1) -> void:
+func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1, spare_ := "") -> void:
 	weapon = weapon_
+	spare = spare_
 	armour = armour_
 	rng.seed = seed_
 	var pool := CARDS.duplicate()
@@ -262,6 +265,23 @@ func attack(i: int) -> void:
 		deck.append(HEAT_CARDS[rng.randi_range(0, HEAT_CARDS.size() - 1)])
 		_shuffle(deck)
 		events.append({"type": "heat_up"})
+
+
+func can_swap() -> bool:
+	return phase == "hero" and spare != "" and stamina >= SWAP_COST
+
+
+## Swap to the other weapon set. It breaks the combo but isn't an attack,
+## so it doesn't cut the stamina back next turn.
+func swap() -> void:
+	if not can_swap():
+		return
+	stamina -= SWAP_COST
+	var w := weapon
+	weapon = spare
+	spare = w
+	hits = 0
+	events.append({"type": "swap"})
 
 
 func can_flask() -> bool:

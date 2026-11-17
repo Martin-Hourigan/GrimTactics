@@ -274,6 +274,30 @@ static func run() -> int:
 	f.end_turn()
 	check(f.dodge_cost() == 1, "next boss turn it's back to 1")
 
+	print("swapping weapons")
+	f = Fight.new("longsword", "light", 1)
+	check(not f.can_swap(), "no second set, no swap")
+	f = Fight.new("longsword", "light", 1, "claymore")
+	f.hero = f.boss + Fight.DIRS[0]
+	f.facing = 0
+	f.attack(0)
+	var st := f.stamina
+	f.swap()
+	check(f.weapon == "claymore" and f.spare == "longsword" and f.stamina == st - Fight.SWAP_COST, "swap to the other set for 1 stamina")
+	check(f.block() == Fight.ARMOURS.light.block, "no shield in hand, no shield block")
+	check(f.attack_bonus(0) == 0.0, "swapping breaks the combo")
+	f.swap()
+	check(f.weapon == "longsword", "and back again")
+	f = Fight.new("longsword", "light", 1, "claymore")
+	f.stamina = 1
+	f.swap()
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.stamina == Fight.STAMINA_BACK + Fight.REST_BONUS, "a swap isn't an attack, so the full stamina comes back")
+	f.stamina = 0
+	check(not f.can_swap(), "no stamina, no swap")
+
 	print("flask")
 	f = Fight.new("longsword", "light", 1)
 	check(not f.can_flask(), "no flask at full health")

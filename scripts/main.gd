@@ -19,7 +19,7 @@ const PANEL := Color("16161a")
 const OFF := Color("2a2a30")
 
 var screen := "menu"  ## menu, fight
-var weapon := "longsword"
+var weapons := ["longsword", "claymore"]  ## the two weapon sets
 var armour := "light"
 var fight: Fight
 var font: Font
@@ -72,7 +72,7 @@ func _ready() -> void:
 
 
 func start() -> void:
-	fight = Fight.new(weapon, armour, randi())
+	fight = Fight.new(weapons[0], armour, randi(), weapons[1])
 	popups.clear()
 	check = {}
 	picking_dodge = false
@@ -275,12 +275,13 @@ func _menu_tap(p: Vector2) -> void:
 				_check_update()
 		return
 	var keys := Fight.WEAPONS.keys()
-	for i in keys.size():
-		if _menu_button(0, i).has_point(p):
-			weapon = keys[i]
+	for s in 2:
+		for i in keys.size():
+			if _menu_button(s, i).has_point(p):
+				weapons[s] = keys[i]
 	keys = Fight.ARMOURS.keys()
 	for i in keys.size():
-		if _menu_button(1, i).has_point(p):
+		if _menu_button(2, i).has_point(p):
 			armour = keys[i]
 	if _fight_button().has_point(p):
 		start()
@@ -297,6 +298,9 @@ func _hero_tap(p: Vector2) -> void:
 		return
 	if _button(3).has_point(p):
 		fight.end_turn()
+		return
+	if _button(4).has_point(p):
+		fight.swap()
 		return
 	var c: Variant = _hex_at(p)
 	if c != null and fight.can_move(c):
@@ -328,7 +332,7 @@ func _button(i: int) -> Rect2:
 
 
 func _menu_button(row: int, i: int) -> Rect2:
-	return Rect2(90 + i * 154, 96 + row * 54, 146, 24)
+	return Rect2(90 + i * 154, 72 + row * 36, 146, 24)
 
 
 func _fight_button() -> Rect2:
@@ -373,11 +377,13 @@ func _box(r: Rect2, label: String, on: bool, picked := false) -> void:
 func _draw_menu() -> void:
 	_text("GrimTactics", Vector2(240, 50), TEXT, true)
 	var keys := Fight.WEAPONS.keys()
-	for i in keys.size():
-		_box(_menu_button(0, i), Fight.WEAPONS[keys[i]].label, true, keys[i] == weapon)
+	for s in 2:
+		_text("Set %d" % (s + 1), _menu_button(s, 0).position + Vector2(-50, 14), DIM)
+		for i in keys.size():
+			_box(_menu_button(s, i), Fight.WEAPONS[keys[i]].label, true, keys[i] == weapons[s])
 	keys = Fight.ARMOURS.keys()
 	for i in keys.size():
-		_box(_menu_button(1, i), Fight.ARMOURS[keys[i]].label, true, keys[i] == armour)
+		_box(_menu_button(2, i), Fight.ARMOURS[keys[i]].label, true, keys[i] == armour)
 	_box(_fight_button(), "FIGHT", true)
 	_text("v" + Update.current(), Vector2(8, 258), DIM)
 	var lit := update_state in ["new", "downloading", "ready", "download_failed"]
@@ -473,6 +479,12 @@ func _draw_panel() -> void:
 			_text(str(fight.attack_damage(i)), r.position + Vector2(140, 14), c)
 		_box(_button(2), "Flask", fight.can_flask())
 		_box(_button(3), "End turn", true)
+		var sr := _button(4)
+		var sc := TEXT if fight.can_swap() else DIM
+		_box(sr, "", fight.can_swap())
+		_text("Swap: " + Fight.WEAPONS[fight.spare].label, sr.position + Vector2(6, 14), sc)
+		for k in Fight.SWAP_COST:
+			draw_rect(Rect2(sr.position + Vector2(160 + k * 5, 9), Vector2(3, 3)), sc)
 	elif fight.phase == "defend" and check.is_empty():
 		var inc := fight.incoming
 		_text("%s  %d" % [inc.name, inc.dmg], Vector2(300, 118), HURT)
