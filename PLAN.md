@@ -106,6 +106,16 @@ so the same layout can go onto a phone later. Phone: landscape (turns
 with the phone), taps act as clicks, an Android export preset (arm64 APK,
 debug-signed, build/GrimTactics.apk).
 
+## Menus (agreed 2026-11-17)
+
+- Title: Play (plus the version and the update button).
+- Then pick the boss (only the knight so far; "Knight" is a PLACEHOLDER
+  name).
+- Then equipment: Weapon 1, Weapon 2 and Armour slots with icons. Tapping a
+  slot opens a grid of icons to pick from. Then Fight.
+- After a win or a death you go back to the equipment screen (PLACEHOLDER
+  choice).
+
 ## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
 - **Longsword and shield:** one-handed sword, shield adds block.
 - **Claymore:** two-handed, no shield, bigger hits.

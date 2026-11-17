@@ -325,6 +325,12 @@ static func run() -> int:
 	check(Art.boss_image(3).get_pixel(2 * Art.R - 1 - 25, Art.R) == img.get_pixel(25, Art.R), "facing left is a mirror of facing right")
 	check(Art.hero_image(0, "longsword").get_width() == 2 * Art.HR and Art.hero_image(1, "claymore").get_width() == 2 * Art.HR, "hero drawn with each weapon")
 	check(Art.hero_image(0, "longsword").get_data() != Art.hero_image(0, "claymore").get_data(), "the two weapons look different")
+	var icons := {}
+	for k in Fight.WEAPONS.keys() + Fight.ARMOURS.keys():
+		var ic := Art.icon_image(k)
+		check(ic.get_width() == Art.ICON and not ic.is_invisible(), "%s has an icon" % k)
+		icons[ic.get_data()] = true
+	check(icons.size() == Fight.WEAPONS.size() + Fight.ARMOURS.size(), "every icon is different")
 
 	print("updates")
 	check(Update.newer("v0.3", "0.2") and not Update.newer("v0.2", "0.2") and not Update.newer("v0.1", "0.2"), "compares versions")

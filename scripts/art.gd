@@ -42,6 +42,75 @@ static func hero_image(f: int, weapon: String) -> Image:
 	return _sample(f, HR, HERO_SCALE, shape)
 
 
+const ICON := 24  ## menu icon size in pixels
+
+
+## The menu icon for a weapon or armour key.
+static func icon(key: String) -> ImageTexture:
+	var k := "icon " + key
+	if not _cache.has(k):
+		_cache[k] = ImageTexture.create_from_image(icon_image(key))
+	return _cache[k]
+
+
+static func icon_image(key: String) -> Image:
+	var shape: Callable = {
+		"longsword": _longsword_icon, "claymore": _claymore_icon,
+		"light": _light_icon, "heavy": _heavy_icon,
+	}[key]
+	var img := Image.create_empty(ICON, ICON, false, Image.FORMAT_RGBA8)
+	for py in ICON:
+		for px in ICON:
+			var col: Variant = shape.call(px + 0.5 - ICON / 2.0, py + 0.5 - ICON / 2.0)
+			if col != null:
+				img.set_pixel(px, py, col)
+	return img
+
+
+# Icon shapes: pixel coordinates from the centre, y down.
+
+static func _longsword_icon(x: float, y: float) -> Variant:
+	if _seg(x, y, -0.8, 3.1, 4.3, 6.4, 0.8):
+		return STEEL  # guard
+	if _seg(x, y, 0, 8, 10, -9, 0.9):
+		return EDGE  # blade
+	if _ell(x, y, -5.5, 2, 5, 6.5):
+		return HERO if not _ell(x, y, -5.5, 2, 3.8, 5.3) else HERO_DARK  # shield, rim
+	return null
+
+
+static func _claymore_icon(x: float, y: float) -> Variant:
+	if _ell(x, y, -9.5, 9.5, 1.5, 1.5):
+		return STEEL  # pommel
+	if _seg(x, y, -5, 5, -9, 9, 0.9):
+		return HERO_DARK  # grip
+	if _seg(x, y, -8.5, 1.5, -1.5, 8.5, 0.9):
+		return STEEL  # guard
+	if _seg(x, y, -5, 5, 10, -10, 1.4):
+		return EDGE  # blade
+	return null
+
+
+static func _light_icon(x: float, y: float) -> Variant:
+	if _ell(x, y, 0, -9, 3, 3):
+		return null  # neck
+	if absf(y - 4) < 0.8 and _ell(x, y, 0, 1, 6, 9):
+		return HERO_DARK  # belt
+	if _ell(x, y, 0, 1, 6, 9):
+		return HERO  # jerkin
+	return null
+
+
+static func _heavy_icon(x: float, y: float) -> Variant:
+	if _ell(x, y, 0, -10, 3.5, 3.5):
+		return null  # neck
+	if _ell(x, y, -7.5, -5, 3.5, 3) or _ell(x, y, 7.5, -5, 3.5, 3):
+		return EDGE  # pauldrons
+	if _ell(x, y, 0, 1, 7, 10):
+		return DARK if absf(y + 1) < 0.6 or absf(y - 4) < 0.6 else STEEL  # plates
+	return null
+
+
 ## Draw shape (x, y -> colour or null) facing f into a (2r)^2 image.
 static func _sample(f: int, r: int, scale: float, shape: Callable) -> Image:
 	var hflip := f in [2, 3, 4]

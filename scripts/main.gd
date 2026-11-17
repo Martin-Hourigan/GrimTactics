@@ -1,5 +1,5 @@
 extends Node2D
-## The game on screen: pick a weapon and armour, then the fight.
+## The game on screen: title, boss, equipment, then the fight.
 ## Everything is a left click (or Space for the dodge check), so it can move to a phone later.
 
 const CENTRE := Vector2(156, 138)
@@ -18,7 +18,12 @@ const GOOD := Color("8cbf8a")
 const PANEL := Color("16161a")
 const OFF := Color("2a2a30")
 
-var screen := "menu"  ## menu, fight
+const BOSSES := {"knight": "Knight"}  ## PLACEHOLDER name
+const SLOTS := ["Weapon 1", "Weapon 2", "Armour"]
+
+var screen := "title"  ## title, boss, equip, fight
+var boss := "knight"
+var picking := -1  ## the equipment slot whose grid is open, or -1
 var weapons := ["longsword", "claymore"]  ## the two weapon sets
 var armour := "light"
 var fight: Fight
@@ -62,6 +67,12 @@ func _ready() -> void:
 	if ai >= 0 and ai + 1 < args.size():
 		auto = int(args[ai + 1])
 	shot_dodge = "--dodge" in args
+	var sc := args.find("--screen")
+	if sc >= 0 and sc + 1 < args.size():
+		screen = args[sc + 1]
+	var pk := args.find("--pick")
+	if pk >= 0 and pk + 1 < args.size():
+		picking = int(args[pk + 1])
 	if "--fight" in args or auto > 0:
 		start()
 	font = ThemeDB.fallback_font
@@ -173,11 +184,18 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if not tap:
 		return
 	var p: Vector2 = ev.position
-	if screen == "menu":
-		_menu_tap(p)
-		return
+	match screen:
+		"title":
+			_title_tap(p)
+			return
+		"boss":
+			_boss_tap(p)
+			return
+		"equip":
+			_equip_tap(p)
+			return
 	if fight.phase in ["win", "lose"]:
-		screen = "menu"
+		screen = "equip"
 		return
 	if auto > 0:
 		return
@@ -258,7 +276,7 @@ func _update_button() -> Rect2:
 	return Rect2(330, 240, 142, 22)
 
 
-func _menu_tap(p: Vector2) -> void:
+func _title_tap(p: Vector2) -> void:
 	if _update_button().has_point(p):
 		match update_state:
 			"new", "download_failed":
@@ -274,17 +292,55 @@ func _menu_tap(p: Vector2) -> void:
 				update_asked = true
 				_check_update()
 		return
-	var keys := Fight.WEAPONS.keys()
-	for s in 2:
-		for i in keys.size():
-			if _menu_button(s, i).has_point(p):
-				weapons[s] = keys[i]
-	keys = Fight.ARMOURS.keys()
+	if _play_button().has_point(p):
+		screen = "boss"
+
+
+func _boss_tap(p: Vector2) -> void:
+	if _back_button().has_point(p):
+		screen = "title"
+		return
+	var keys := BOSSES.keys()
 	for i in keys.size():
-		if _menu_button(2, i).has_point(p):
-			armour = keys[i]
+		if _boss_card(i).has_point(p):
+			boss = keys[i]
+			screen = "equip"
+
+
+func _equip_tap(p: Vector2) -> void:
+	if picking >= 0:
+		var keys := _choices(picking)
+		for i in keys.size():
+			if _grid_cell(i).has_point(p):
+				if picking < 2:
+					weapons[picking] = keys[i]
+				else:
+					armour = keys[i]
+		picking = -1  # a tap anywhere closes the grid
+		return
+	if _back_button().has_point(p):
+		screen = "boss"
+		return
+	for s in SLOTS.size():
+		if _slot(s).has_point(p):
+			picking = s
+			return
 	if _fight_button().has_point(p):
 		start()
+
+
+## What can go in equipment slot s.
+func _choices(s: int) -> Array:
+	return Fight.WEAPONS.keys() if s < 2 else Fight.ARMOURS.keys()
+
+
+## What is in equipment slot s now.
+func _equipped(s: int) -> String:
+	return weapons[s] if s < 2 else armour
+
+
+func _item_label(key: String) -> String:
+	return Fight.WEAPONS[key].label if Fight.WEAPONS.has(key) else Fight.ARMOURS[key].label
 
 
 func _hero_tap(p: Vector2) -> void:
@@ -331,8 +387,24 @@ func _button(i: int) -> Rect2:
 	return Rect2(300, 128 + i * 26, 172, 22)
 
 
-func _menu_button(row: int, i: int) -> Rect2:
-	return Rect2(90 + i * 154, 72 + row * 36, 146, 24)
+func _play_button() -> Rect2:
+	return Rect2(190, 130, 100, 26)
+
+
+func _back_button() -> Rect2:
+	return Rect2(8, 8, 50, 20)
+
+
+func _boss_card(i: int) -> Rect2:
+	return Rect2(190 + i * 110, 50, 100, 120)
+
+
+func _slot(s: int) -> Rect2:
+	return Rect2(66 + s * 120, 60, 108, 110)
+
+
+func _grid_cell(i: int) -> Rect2:
+	return Rect2(106 + (i % 3) * 92, 76 + (i / 3) * 92, 84, 84)
 
 
 func _fight_button() -> Rect2:
@@ -343,9 +415,16 @@ func _fight_button() -> Rect2:
 
 func _draw() -> void:
 	draw_rect(Rect2(0, 0, 480, 270), Art.BG)
-	if screen == "menu":
-		_draw_menu()
-		return
+	match screen:
+		"title":
+			_draw_title()
+			return
+		"boss":
+			_draw_boss_select()
+			return
+		"equip":
+			_draw_equip()
+			return
 	_draw_room()
 	_draw_panel()
 	if not check.is_empty():
@@ -360,11 +439,11 @@ func _draw() -> void:
 		_text("BOSS DOWN" if fight.phase == "win" else "YOU FELL", Vector2(240, 139), TEXT, true)
 
 
-func _text(s: String, pos: Vector2, c: Color, centred := false) -> void:
+func _text(s: String, pos: Vector2, c: Color, centred := false, size := 8) -> void:
 	var x := pos.x
 	if centred:
-		x -= font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x / 2.0
-	draw_string(font, Vector2(roundf(x), roundf(pos.y)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, c)
+		x -= font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2.0
+	draw_string(font, Vector2(roundf(x), roundf(pos.y)), s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, c)
 
 
 func _box(r: Rect2, label: String, on: bool, picked := false) -> void:
@@ -374,20 +453,59 @@ func _box(r: Rect2, label: String, on: bool, picked := false) -> void:
 	_text(label, r.position + Vector2(r.size.x / 2, 14), c, true)
 
 
-func _draw_menu() -> void:
-	_text("GrimTactics", Vector2(240, 50), TEXT, true)
-	var keys := Fight.WEAPONS.keys()
-	for s in 2:
-		_text("Set %d" % (s + 1), _menu_button(s, 0).position + Vector2(-50, 14), DIM)
-		for i in keys.size():
-			_box(_menu_button(s, i), Fight.WEAPONS[keys[i]].label, true, keys[i] == weapons[s])
-	keys = Fight.ARMOURS.keys()
-	for i in keys.size():
-		_box(_menu_button(2, i), Fight.ARMOURS[keys[i]].label, true, keys[i] == armour)
-	_box(_fight_button(), "FIGHT", true)
+func _draw_title() -> void:
+	_text("GrimTactics", Vector2(240, 90), TEXT, true, 16)
+	_box(_play_button(), "PLAY", true)
 	_text("v" + Update.current(), Vector2(8, 258), DIM)
 	var lit := update_state in ["new", "downloading", "ready", "download_failed"]
 	_box(_update_button(), _update_label(), update_state != "checking", lit)
+
+
+func _draw_boss_select() -> void:
+	_box(_back_button(), "Back", true)
+	var keys := BOSSES.keys()
+	for i in keys.size():
+		var r := _boss_card(i)
+		_box(r, "", true, keys[i] == boss)
+		var tex := Art.boss(5)
+		draw_texture(tex, (r.get_center() - Vector2(0, 8) - tex.get_size() / 2).round())
+		_text(BOSSES[keys[i]], Vector2(r.get_center().x, r.end.y - 8), TEXT, true)
+
+
+func _draw_equip() -> void:
+	_box(_back_button(), "Back", true)
+	_text(BOSSES[boss], Vector2(240, 30), TEXT, true)
+	for s in SLOTS.size():
+		var r := _slot(s)
+		_box(r, "", true)
+		_text(SLOTS[s], Vector2(r.get_center().x, r.position.y + 14), DIM, true)
+		_icon(_equipped(s), r.get_center() + Vector2(0, 2))
+		_text(_item_label(_equipped(s)), Vector2(r.get_center().x, r.end.y - 8), TEXT, true)
+	_box(_fight_button(), "FIGHT", true)
+	if picking >= 0:
+		_draw_grid()
+
+
+## The grid of icons for the slot being picked, over the equipment screen.
+func _draw_grid() -> void:
+	draw_rect(Rect2(0, 0, 480, 270), Color(0, 0, 0, 0.7))
+	var keys := _choices(picking)
+	var rows := ceili(keys.size() / 3.0)
+	var panel := Rect2(96, 50, 296, 34 + rows * 92)
+	draw_rect(panel, PANEL)
+	draw_rect(panel, DIM, false, 1.0)
+	_text(SLOTS[picking], Vector2(panel.get_center().x, panel.position.y + 16), DIM, true)
+	for i in keys.size():
+		var r := _grid_cell(i)
+		_box(r, "", true, keys[i] == _equipped(picking))
+		_icon(keys[i], r.get_center() - Vector2(0, 6))
+		_text(_item_label(keys[i]), Vector2(r.get_center().x, r.end.y - 8), TEXT, true)
+
+
+## Icon for key drawn at twice its size, centred on c.
+func _icon(key: String, c: Vector2) -> void:
+	var size := Vector2(Art.ICON, Art.ICON) * 2
+	draw_texture_rect(Art.icon(key), Rect2((c - size / 2).round(), size), false)
 
 
 func _hex_poly(c: Vector2, r: float) -> PackedVector2Array:
