@@ -56,7 +56,7 @@ static func icon(key: String) -> ImageTexture:
 static func icon_image(key: String) -> Image:
 	var shape: Callable = {
 		"longsword": _longsword_icon, "claymore": _claymore_icon, "bow": _bow_icon,
-		"light": _light_icon, "heavy": _heavy_icon,
+		"light": _light_icon, "heavy": _heavy_icon, "cog": _cog_icon,
 	}[key]
 	var img := Image.create_empty(ICON, ICON, false, Image.FORMAT_RGBA8)
 	for py in ICON:
@@ -100,6 +100,18 @@ static func _bow_icon(x: float, y: float) -> Variant:
 		return HERO  # bow
 	if absf(x + 1) < 0.5 and absf(y) < 9.8:
 		return HERO_DARK  # string
+	return null
+
+
+## The settings button in a fight.
+static func _cog_icon(x: float, y: float) -> Variant:
+	var d := Vector2(x, y).length()
+	if d < 2.0:
+		return null
+	if d < 5.0:
+		return STEEL
+	if d < 7.0 and cos(8.0 * atan2(y, x)) > 0.2:
+		return STEEL  # teeth
 	return null
 
 

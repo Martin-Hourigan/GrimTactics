@@ -142,6 +142,11 @@ Play opens a mode list (names PLACEHOLDER), then boss and equipment.
   device. On PC, portrait makes the window upright.
 - After a win or a death you go back to the equipment screen (PLACEHOLDER
   choice).
+- In a fight (2026-11-18): a cog top right opens Settings, with Main menu
+  to leave the fight and Back to carry on.
+- The fight view follows the hero: the hero stays mid-screen and the room
+  moves around them (ready for a world map later). The boss's health and its
+  card sit along the top of the screen.
 
 ## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
 - **Longsword and shield:** one-handed sword, shield adds block.

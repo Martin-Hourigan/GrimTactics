@@ -27,6 +27,8 @@ var mode := "stamina"
 var portrait := true  ## phone held upright: the room above the panel
 var boss := "knight"
 var picking := -1  ## the equipment slot whose grid is open, or -1
+var paused := false  ## settings opened from the cog in a fight
+var cam := Vector2.ZERO  ## the room is drawn so this point (the hero) is mid-screen
 var weapons := ["longsword", "claymore"]  ## the two weapon sets
 var armour := "light"
 var fight: Fight
@@ -122,9 +124,14 @@ func _view() -> Vector2:
 	return Vector2(270, 480) if portrait else Vector2(480, 270)
 
 
-## Middle of the room on screen.
+## Where the hero stands on screen.
 func _centre() -> Vector2:
-	return Vector2(135, 112) if portrait else Vector2(156, 138)
+	return Vector2(135, 124) if portrait else Vector2(150, 148)
+
+
+## The hero's place in the room, in pixels, which the camera follows.
+func _cam_target() -> Vector2:
+	return HR * Fight.flat(fight.hero) * Vector2(1, -1)
 
 
 ## Top left of the fight panel (its parts sit at the same places relative to it).
@@ -137,11 +144,13 @@ func start() -> void:
 	popups.clear()
 	check = {}
 	picking_dodge = false
+	cam = _cam_target()
+	paused = false
 	screen = "fight"
 
 
 func hex_pos(c: Vector2i) -> Vector2:
-	return (_centre() + HR * Fight.flat(c) * Vector2(1, -1)).round()
+	return _centre() + (HR * Fight.flat(c) * Vector2(1, -1)).round() - cam.round()
 
 
 func _process(delta: float) -> void:
@@ -150,6 +159,9 @@ func _process(delta: float) -> void:
 	update_note = maxf(0.0, update_note - delta)
 	if screen == "fight":
 		_tick(delta)
+		cam = cam.lerp(_cam_target(), minf(1.0, delta * 10.0))
+		if cam.distance_to(_cam_target()) < 0.5:
+			cam = _cam_target()
 	if not arrow.is_empty():
 		arrow.t += delta
 		if arrow.t > 0.25:
@@ -256,6 +268,10 @@ func _unhandled_input(ev: InputEvent) -> void:
 		"equip":
 			_equip_tap(p)
 			return
+	if _cog_button().has_point(p):
+		paused = true
+		screen = "settings"
+		return
 	if fight.phase in ["win", "lose"]:
 		screen = "equip"
 		return
@@ -362,6 +378,11 @@ func _title_tap(p: Vector2) -> void:
 
 func _settings_tap(p: Vector2) -> void:
 	if _back_button().has_point(p):
+		screen = "fight" if paused else "title"
+		paused = false
+		return
+	if paused and _leave_button().has_point(p):
+		paused = false
 		screen = "title"
 		return
 	for i in 2:
@@ -494,6 +515,14 @@ func _mode_button(i: int) -> Rect2:
 	return Rect2(_view().x / 2 - 70, 70 + i * 36, 140, 24)
 
 
+func _leave_button() -> Rect2:
+	return Rect2(_view().x / 2 - 60, 140, 120, 24)
+
+
+func _cog_button() -> Rect2:
+	return Rect2(_view().x - 24, 2, 22, 22)
+
+
 func _back_button() -> Rect2:
 	return Rect2(8, 8, 50, 20)
 
@@ -551,6 +580,7 @@ func _draw() -> void:
 			return
 	_draw_room()
 	_draw_panel()
+	_draw_top()
 	if not check.is_empty():
 		_draw_check()
 	if not arrow.is_empty():
@@ -595,6 +625,8 @@ func _draw_settings() -> void:
 	_text("Screen", Vector2(_view().x / 2, 60), DIM, true)
 	_box(_choice(0, 0), "Landscape", true, not portrait)
 	_box(_choice(0, 1), "Portrait", true, portrait)
+	if paused:
+		_box(_leave_button(), "Main menu", true)
 
 
 func _draw_modes() -> void:
@@ -712,13 +744,26 @@ func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
 	draw_rect(Rect2(pos, Vector2(roundf(w * v / vmax), 4)), c)
 
 
+## The boss's health along the top of the screen, and the cog.
+func _draw_top() -> void:
+	var w := _view().x
+	draw_rect(Rect2(0, 0, w, 32), Art.BG)
+	_bar(Vector2(8, 8), w - 40, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
+	var cname: String = fight.card.get("name", "-")
+	_text(cname, Vector2(8, 26), TEXT if fight.phase in ["boss", "defend"] else DIM)
+	var deck := "deck %d" % fight.deck.size()
+	_text(deck, Vector2(w - 32 - font.get_string_size(deck, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x, 26), DIM)
+	var cog := _cog_button()
+	draw_texture(Art.icon("cog"), (cog.get_center() - Vector2(Art.ICON, Art.ICON) / 2).round())
+
+
 func _draw_panel() -> void:
 	var o := _po()
-	_text("Boss", o + Vector2(0, 16), TEXT)
-	_bar(o + Vector2(30, 10), 142, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
-	var cname: String = fight.card.get("name", "-")
-	_text(cname, o + Vector2(0, 32), TEXT if fight.phase in ["boss", "defend"] else DIM)
-	_text("deck %d" % fight.deck.size(), o + Vector2(140, 32), DIM)
+	# the room scrolls under the panel
+	if portrait:
+		draw_rect(Rect2(0, o.y - 6, _view().x, _view().y - o.y + 6), Art.BG)
+	else:
+		draw_rect(Rect2(o.x - 6, 0, _view().x - o.x + 6, _view().y), Art.BG)
 	_text("You", o + Vector2(0, 60), TEXT)
 	_bar(o + Vector2(30, 54), 142, fight.hp, Fight.HERO_HP, Art.HERO)
 	_text(str(fight.hp), o + Vector2(0, 74), Art.HERO)
