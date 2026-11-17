@@ -2,7 +2,6 @@ extends Node2D
 ## The game on screen: title, boss, equipment, then the fight.
 ## Everything is a left click (or Space for the dodge check), so it can move to a phone later.
 
-const CENTRE := Vector2(156, 138)
 const HR := 18.0  ## hex radius
 const BOSS_STEP := 0.45  ## seconds between the steps of the boss's card
 const HEX := Color("1c1c22")
@@ -21,7 +20,10 @@ const OFF := Color("2a2a30")
 const BOSSES := {"knight": "Knight"}  ## PLACEHOLDER name
 const SLOTS := ["Weapon 1", "Weapon 2", "Armour"]
 
-var screen := "title"  ## title, boss, equip, fight
+const SETTINGS := "user://settings.cfg"
+
+var screen := "title"  ## title, settings, boss, equip, fight
+var portrait := false  ## phone held upright: the room above the panel
 var boss := "knight"
 var picking := -1  ## the equipment slot whose grid is open, or -1
 var weapons := ["longsword", "claymore"]  ## the two weapon sets
@@ -76,10 +78,48 @@ func _ready() -> void:
 	if "--fight" in args or auto > 0:
 		start()
 	font = ThemeDB.fallback_font
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS) == OK:
+		portrait = cfg.get_value("screen", "portrait", false)
+	if "--portrait" in args:
+		portrait = true
+	_apply_screen()
 	# an update downloaded last time has been installed (or given up on)
 	if FileAccess.file_exists(Update.APK):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(Update.APK))
 	_check_update()
+
+
+## The view size and phone orientation for the current setting.
+func _apply_screen() -> void:
+	get_tree().root.content_scale_size = Vector2i(_view())
+	if OS.has_feature("mobile"):
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_PORTRAIT if portrait else DisplayServer.SCREEN_SENSOR_LANDSCAPE)
+	elif DisplayServer.get_name() != "headless":
+		var size := Vector2i(_view()) * (2 if portrait else 3)
+		DisplayServer.window_set_size(size)
+		var usable := DisplayServer.screen_get_usable_rect()
+		DisplayServer.window_set_position(usable.position + (usable.size - size) / 2)
+
+
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("screen", "portrait", portrait)
+	cfg.save(SETTINGS)
+
+
+func _view() -> Vector2:
+	return Vector2(270, 480) if portrait else Vector2(480, 270)
+
+
+## Middle of the room on screen.
+func _centre() -> Vector2:
+	return Vector2(135, 112) if portrait else Vector2(156, 138)
+
+
+## Top left of the fight panel (its parts sit at the same places relative to it).
+func _po() -> Vector2:
+	return Vector2(49, 218) if portrait else Vector2(300, 0)
 
 
 func start() -> void:
@@ -90,8 +130,8 @@ func start() -> void:
 	screen = "fight"
 
 
-static func hex_pos(c: Vector2i) -> Vector2:
-	return (CENTRE + HR * Fight.flat(c) * Vector2(1, -1)).round()
+func hex_pos(c: Vector2i) -> Vector2:
+	return (_centre() + HR * Fight.flat(c) * Vector2(1, -1)).round()
 
 
 func _process(delta: float) -> void:
@@ -188,6 +228,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 		"title":
 			_title_tap(p)
 			return
+		"settings":
+			_settings_tap(p)
+			return
 		"boss":
 			_boss_tap(p)
 			return
@@ -273,7 +316,7 @@ func _update_label() -> String:
 
 
 func _update_button() -> Rect2:
-	return Rect2(330, 240, 142, 22)
+	return Rect2(_view().x - 150, _view().y - 30, 142, 22)
 
 
 func _title_tap(p: Vector2) -> void:
@@ -294,6 +337,19 @@ func _title_tap(p: Vector2) -> void:
 		return
 	if _play_button().has_point(p):
 		screen = "boss"
+	elif _settings_button().has_point(p):
+		screen = "settings"
+
+
+func _settings_tap(p: Vector2) -> void:
+	if _back_button().has_point(p):
+		screen = "title"
+		return
+	for i in 2:
+		if _choice(0, i).has_point(p) and portrait != (i == 1):
+			portrait = i == 1
+			_save_settings()
+			_apply_screen()
 
 
 func _boss_tap(p: Vector2) -> void:
@@ -384,11 +440,21 @@ func _hex_at(p: Vector2) -> Variant:
 
 
 func _button(i: int) -> Rect2:
-	return Rect2(300, 128 + i * 26, 172, 22)
+	return Rect2(_po() + Vector2(0, 128 + i * 26), Vector2(172, 22))
 
 
 func _play_button() -> Rect2:
-	return Rect2(190, 130, 100, 26)
+	return Rect2(_view().x / 2 - 50, 130, 100, 26)
+
+
+func _settings_button() -> Rect2:
+	return Rect2(_view().x / 2 - 50, 164, 100, 26)
+
+
+## Option i of row row on the settings page.
+func _choice(row: int, i: int) -> Rect2:
+	var w := 120.0 if portrait else 146.0
+	return Rect2(_view().x / 2 - w - 4 + i * (w + 8), 70 + row * 36, w, 24)
 
 
 func _back_button() -> Rect2:
@@ -396,28 +462,46 @@ func _back_button() -> Rect2:
 
 
 func _boss_card(i: int) -> Rect2:
-	return Rect2(190 + i * 110, 50, 100, 120)
+	return Rect2(_view().x / 2 - 50 + i * 110, 50, 100, 120)
 
 
 func _slot(s: int) -> Rect2:
+	if portrait:
+		return Rect2(55, 50 + s * 112, 160, 104)
 	return Rect2(66 + s * 120, 60, 108, 110)
 
 
+func _grid_cols() -> int:
+	return 2 if portrait else 3
+
+
+## The grid's panel for n choices.
+func _grid_panel(n: int) -> Rect2:
+	var w := _grid_cols() * 92 + 12
+	return Rect2(_view().x / 2 - w / 2, 50, w, 34 + ceili(float(n) / _grid_cols()) * 92)
+
+
 func _grid_cell(i: int) -> Rect2:
-	return Rect2(106 + (i % 3) * 92, 76 + (i / 3) * 92, 84, 84)
+	var panel := _grid_panel(i + 1)
+	return Rect2(panel.position + Vector2(10 + (i % _grid_cols()) * 92, 26 + (i / _grid_cols()) * 92), Vector2(84, 84))
 
 
 func _fight_button() -> Rect2:
+	if portrait:
+		return Rect2(85, 400, 100, 26)
 	return Rect2(190, 210, 100, 26)
 
 
 # ---- drawing ----
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, 480, 270), Art.BG)
+	draw_rect(Rect2(Vector2.ZERO, _view()), Art.BG)
 	match screen:
 		"title":
 			_draw_title()
+			return
+		"settings":
+			_draw_settings()
 			return
 		"boss":
 			_draw_boss_select()
@@ -435,8 +519,9 @@ func _draw() -> void:
 		c.a = a
 		_text(p.text, p.pos + Vector2(0, -8.0 * p.t), c, true)
 	if fight.phase in ["win", "lose"]:
-		draw_rect(Rect2(0, 120, 480, 30), Color(0, 0, 0, 0.8))
-		_text("BOSS DOWN" if fight.phase == "win" else "YOU FELL", Vector2(240, 139), TEXT, true)
+		var v := _view()
+		draw_rect(Rect2(0, v.y / 2 - 15, v.x, 30), Color(0, 0, 0, 0.8))
+		_text("BOSS DOWN" if fight.phase == "win" else "YOU FELL", Vector2(v.x / 2, v.y / 2 + 4), TEXT, true)
 
 
 func _text(s: String, pos: Vector2, c: Color, centred := false, size := 8) -> void:
@@ -454,11 +539,19 @@ func _box(r: Rect2, label: String, on: bool, picked := false) -> void:
 
 
 func _draw_title() -> void:
-	_text("GrimTactics", Vector2(240, 90), TEXT, true, 16)
+	_text("GrimTactics", Vector2(_view().x / 2, 90), TEXT, true, 16)
 	_box(_play_button(), "PLAY", true)
-	_text("v" + Update.current(), Vector2(8, 258), DIM)
+	_box(_settings_button(), "Settings", true)
+	_text("v" + Update.current(), Vector2(8, _view().y - 12), DIM)
 	var lit := update_state in ["new", "downloading", "ready", "download_failed"]
 	_box(_update_button(), _update_label(), update_state != "checking", lit)
+
+
+func _draw_settings() -> void:
+	_box(_back_button(), "Back", true)
+	_text("Screen", Vector2(_view().x / 2, 60), DIM, true)
+	_box(_choice(0, 0), "Landscape", true, not portrait)
+	_box(_choice(0, 1), "Portrait", true, portrait)
 
 
 func _draw_boss_select() -> void:
@@ -474,7 +567,7 @@ func _draw_boss_select() -> void:
 
 func _draw_equip() -> void:
 	_box(_back_button(), "Back", true)
-	_text(BOSSES[boss], Vector2(240, 30), TEXT, true)
+	_text(BOSSES[boss], Vector2(_view().x / 2, 30), TEXT, true)
 	for s in SLOTS.size():
 		var r := _slot(s)
 		_box(r, "", true)
@@ -488,10 +581,9 @@ func _draw_equip() -> void:
 
 ## The grid of icons for the slot being picked, over the equipment screen.
 func _draw_grid() -> void:
-	draw_rect(Rect2(0, 0, 480, 270), Color(0, 0, 0, 0.7))
+	draw_rect(Rect2(Vector2.ZERO, _view()), Color(0, 0, 0, 0.7))
 	var keys := _choices(picking)
-	var rows := ceili(keys.size() / 3.0)
-	var panel := Rect2(96, 50, 296, 34 + rows * 92)
+	var panel := _grid_panel(keys.size())
 	draw_rect(panel, PANEL)
 	draw_rect(panel, DIM, false, 1.0)
 	_text(SLOTS[picking], Vector2(panel.get_center().x, panel.position.y + 16), DIM, true)
@@ -571,18 +663,19 @@ func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
 
 
 func _draw_panel() -> void:
-	_text("Boss", Vector2(300, 16), TEXT)
-	_bar(Vector2(330, 10), 142, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
+	var o := _po()
+	_text("Boss", o + Vector2(0, 16), TEXT)
+	_bar(o + Vector2(30, 10), 142, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
 	var cname: String = fight.card.get("name", "-")
-	_text(cname, Vector2(300, 32), TEXT if fight.phase in ["boss", "defend"] else DIM)
-	_text("deck %d" % fight.deck.size(), Vector2(440, 32), DIM)
-	_text("You", Vector2(300, 60), TEXT)
-	_bar(Vector2(330, 54), 142, fight.hp, Fight.HERO_HP, Art.HERO)
-	_text(str(fight.hp), Vector2(300, 74), Art.HERO)
+	_text(cname, o + Vector2(0, 32), TEXT if fight.phase in ["boss", "defend"] else DIM)
+	_text("deck %d" % fight.deck.size(), o + Vector2(140, 32), DIM)
+	_text("You", o + Vector2(0, 60), TEXT)
+	_bar(o + Vector2(30, 54), 142, fight.hp, Fight.HERO_HP, Art.HERO)
+	_text(str(fight.hp), o + Vector2(0, 74), Art.HERO)
 	for k in Fight.STAMINA:
-		draw_rect(Rect2(330 + k * 10, 66, 7, 7), GOOD if k < fight.stamina else OFF)
+		draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), GOOD if k < fight.stamina else OFF)
 	for k in Fight.FLASKS:
-		draw_rect(Rect2(330 + k * 10, 80, 7, 7), HURT if k < fight.flasks else OFF)
+		draw_rect(Rect2(o + Vector2(30 + k * 10, 80), Vector2(7, 7)), HURT if k < fight.flasks else OFF)
 	if fight.phase == "hero":
 		var acts: Array = Fight.WEAPONS[fight.weapon].acts
 		for i in acts.size():
@@ -605,7 +698,7 @@ func _draw_panel() -> void:
 			draw_rect(Rect2(sr.position + Vector2(160 + k * 5, 9), Vector2(3, 3)), sc)
 	elif fight.phase == "defend" and check.is_empty():
 		var inc := fight.incoming
-		_text("%s  %d" % [inc.name, inc.dmg], Vector2(300, 118), HURT)
+		_text("%s  %d" % [inc.name, inc.dmg], o + Vector2(0, 118), HURT)
 		var r := _button(1)
 		_box(r, "", true)
 		_text("Block", r.position + Vector2(6, 14), TEXT)
@@ -618,10 +711,10 @@ func _draw_panel() -> void:
 
 
 func _draw_check() -> void:
-	var r := Rect2(298, 232, 176, 30)
+	var r := Rect2(_po() + Vector2(-2, 232), Vector2(176, 30))
 	draw_rect(r, PANEL)
 	draw_rect(r, TEXT, false, 1.0)
-	var bar := Rect2(306, 242, 160, 10)
+	var bar := Rect2(_po() + Vector2(6, 242), Vector2(160, 10))
 	draw_rect(bar, OFF)
 	var s: Vector2 = check.sweet
 	draw_rect(Rect2(bar.position.x + roundf(bar.size.x * s.x), bar.position.y, maxf(1.0, roundf(bar.size.x * (s.y - s.x))), bar.size.y), GOOD.darkened(0.4))

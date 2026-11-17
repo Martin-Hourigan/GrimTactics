@@ -113,6 +113,9 @@ debug-signed, build/GrimTactics.apk).
   name).
 - Then equipment: Weapon 1, Weapon 2 and Armour slots with icons. Tapping a
   slot opens a grid of icons to pick from. Then Fight.
+- Settings (from the title): Screen = Landscape or Portrait (2026-11-17).
+  Portrait puts the room on top and the panel under it. Saved on the
+  device. On PC, portrait makes the window upright.
 - After a win or a death you go back to the equipment screen (PLACEHOLDER
   choice).
 
