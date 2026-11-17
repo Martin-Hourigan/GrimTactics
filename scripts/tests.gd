@@ -18,8 +18,10 @@ static func bot(f: Fight) -> void:
 	if f.phase == "defend":
 		if f.can_dodge():
 			f.defend_dodge(f.dodge_hexes().back(), f.rng.randf() < 0.5)
-		else:
+		elif f.can_block():
 			f.defend_block()
+		else:
+			f.take_hit()
 		return
 	if f.phase != "hero":
 		return
@@ -104,6 +106,7 @@ static func run() -> int:
 	var dealt: Array[int] = []
 	for k in 5:
 		var hp0 := f.boss_hp
+		f.stamina = Fight.STAMINA  # enough for every hit
 		f.attack(0)
 		dealt.append(hp0 - f.boss_hp)
 	check(dealt[0] == base - Fight.BOSS_BLOCK, "the first hit has no bonus")
@@ -196,6 +199,17 @@ static func run() -> int:
 	f.defend_block()
 	check(f.hp == hp - 60 + f.block() and f.block() == Fight.WEAPONS.longsword.block + Fight.ARMOURS.light.block, "blocking takes off a set amount: shield plus armour")
 	check(f.phase == "boss", "then the boss carries on")
+	check(f.stamina == Fight.STAMINA - Fight.BLOCK_COST, "blocking costs stamina")
+	f = _attacked("longsword", "light", 60, false)
+	f.stamina = Fight.BLOCK_COST - 1
+	check(not f.can_block(), "not enough stamina, no block")
+	f.defend_block()
+	check(f.phase == "defend", "so blocking does nothing")
+	f.take_hit()
+	check(f.hp == Fight.HERO_HP - 60 and f.phase == "boss" and f.stamina == Fight.BLOCK_COST - 1, "taking the hit is the full hit for no stamina")
+	f = _attacked("longsword", "light", 60, false)
+	f.incoming.heavy = true
+	check(f.block_cost() == Fight.HEAVY_BLOCK_COST, "a heavy attack costs more to block")
 	f = _attacked("longsword", "light", 60, false)
 	var to: Vector2i = f.dodge_hexes()[1]
 	f.defend_dodge(to, true)
@@ -370,7 +384,7 @@ static func run() -> int:
 static func _finish_boss_turn(f: Fight) -> void:
 	for k in 50:
 		if f.phase == "defend":
-			f.defend_block()
+			f.take_hit()
 		if f.phase != "boss":
 			break
 		f.step()

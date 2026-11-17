@@ -437,11 +437,14 @@ func _defend_tap(p: Vector2) -> void:
 		if c != null and c in fight.dodge_hexes():
 			_start_check(c)
 			return
-	if _button(1).has_point(p):
+	if _button(1).has_point(p) and fight.can_block():
 		picking_dodge = false
 		fight.defend_block()
 	elif _button(2).has_point(p) and fight.can_dodge():
 		picking_dodge = true
+	elif _button(3).has_point(p):
+		picking_dodge = false
+		fight.take_hit()
 
 
 func _hex_at(p: Vector2) -> Variant:
@@ -717,9 +720,16 @@ func _draw_panel() -> void:
 		var inc := fight.incoming
 		_text("%s  %d" % [inc.name, inc.dmg], o + Vector2(0, 118), HURT)
 		var r := _button(1)
-		_box(r, "", true)
-		_text("Block", r.position + Vector2(6, 14), TEXT)
-		_text(str(fight.block_damage()), r.position + Vector2(140, 14), TEXT)
+		var bcol := TEXT if fight.can_block() else DIM
+		_box(r, "", fight.can_block())
+		_text("Block", r.position + Vector2(6, 14), bcol)
+		for k in fight.block_cost():
+			draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), bcol)
+		_text(str(fight.block_damage()), r.position + Vector2(140, 14), bcol)
+		var th := _button(3)
+		_box(th, "", true)
+		_text("Take the hit", th.position + Vector2(6, 14), TEXT)
+		_text(str(inc.dmg), th.position + Vector2(140, 14), TEXT)
 		_box(_button(2), "Dodge", fight.can_dodge(), picking_dodge)
 		var dc := fight.dodge_cost()
 		var dcol := TEXT if fight.can_dodge() else DIM

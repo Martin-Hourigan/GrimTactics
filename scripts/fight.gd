@@ -15,6 +15,8 @@ const REST_BONUS := 4  ## extra stamina back after a turn with no attack
 const FLASKS := 2
 const FLASK_HEAL := 100
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
+const BLOCK_COST := 2  ## blocking a boss attack
+const HEAVY_BLOCK_COST := 3  ## blocking one of its heavy attacks
 const SWAP_COST := 1  ## swapping to the other weapon set
 const WEAK_BONUS := 10  ## extra damage from a weak arc
 const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; then it starts again
@@ -23,12 +25,12 @@ const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st
 ## Each weapon's first attack becomes its "run" attack after a run.
 const WEAPONS := {
 	"longsword": {"label": "Longsword & shield", "block": 10, "acts": [
-		{"label": "Slash", "st": 1, "dmg": 25, "run": "Running slash"},
-		{"label": "Heavy slash", "st": 2, "dmg": 35},
+		{"label": "Slash", "st": 2, "dmg": 25, "run": "Running slash"},
+		{"label": "Heavy slash", "st": 3, "dmg": 45},
 	]},
 	"claymore": {"label": "Claymore", "block": 0, "acts": [
-		{"label": "Swing", "st": 1, "dmg": 35, "run": "Running swing"},
-		{"label": "Heavy swing", "st": 3, "dmg": 55},
+		{"label": "Swing", "st": 2, "dmg": 35, "run": "Running swing"},
+		{"label": "Heavy swing", "st": 4, "dmg": 70},
 	]},
 	"bow": {"label": "Bow", "block": 0, "range": [1, 2 * ROOM], "arrows": true, "acts": [
 		{"label": "Shot", "st": 3, "dmg": 40},
@@ -52,18 +54,19 @@ const DECK_SIZE := 4
 ##   aim [turns, steps]: before the next attack it may turn up to this many
 ##     times and step up to this many hexes (facing kept) to bring the hero
 ##     into that attack,
-##   attack dmg within range: the hero only, or every hex in the listed arcs.
+##   attack dmg within range: the hero only, or every hex in the listed arcs;
+##     heavy attacks cost more stamina to block.
 ## dodge = how hard the dodge check is (1-3). weak = arcs that take extra damage.
 const CARDS := [
 	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"aim": [1, 0]}, {"attack": 50, "range": 1, "arcs": ["front"]}]},
 	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"aim": [1, 0]}, {"attack": 40, "range": 1, "arcs": ["front", "left", "right"]}]},
-	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 60, "range": 1, "arcs": ["front"], "push": true}]},
-	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 80, "range": 1, "arcs": ["front"]}]},
+	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 60, "range": 1, "arcs": ["front"], "push": true, "heavy": true}]},
+	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 80, "range": 1, "arcs": ["front"], "heavy": true}]},
 	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"aim": [2, 1]}, {"attack": 30, "range": 1, "arcs": ["front"], "push": true}]},
 	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"aim": [1, 0]}, {"attack": 50, "range": 2, "arcs": ["front"]}]},
 ]
 const HEAT_CARDS := [
-	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 60, "range": 1, "arcs": ["front", "left", "right", "back"]}]},
+	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 60, "range": 1, "arcs": ["front", "left", "right", "back"], "heavy": true}]},
 	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 40, "range": 1, "arcs": ["front"]}]},
 ]
 
@@ -469,7 +472,7 @@ func _boss_attack(s: Dictionary) -> void:
 	var hit := hexes.has(hero)
 	events.append({"type": "attack", "hexes": hexes, "hit": hit})
 	if hit:
-		incoming = {"name": card.name, "dmg": s.attack, "dodge": card.dodge, "push": s.get("push", false), "hexes": hexes}
+		incoming = {"name": card.name, "dmg": s.attack, "dodge": card.dodge, "push": s.get("push", false), "heavy": s.get("heavy", false), "hexes": hexes}
 		phase = "defend"
 
 
@@ -483,10 +486,30 @@ func block_damage() -> int:
 	return maxi(0, incoming.dmg - block())
 
 
+## Stamina it takes to block the incoming hit.
+func block_cost() -> int:
+	return HEAVY_BLOCK_COST if incoming.get("heavy", false) else BLOCK_COST
+
+
+func can_block() -> bool:
+	return phase == "defend" and stamina >= block_cost()
+
+
 func defend_block() -> void:
+	if not can_block():
+		return
+	stamina -= block_cost()
+	_hurt(block_damage())
+	if incoming.push:
+		_push()
+	_defended()
+
+
+## Neither block nor dodge: the full hit, for no stamina.
+func take_hit() -> void:
 	if phase != "defend":
 		return
-	_hurt(block_damage())
+	_hurt(incoming.dmg)
 	if incoming.push:
 		_push()
 	_defended()

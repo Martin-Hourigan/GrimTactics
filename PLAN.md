@@ -52,7 +52,15 @@ my guess, for Martin to change. Run it with play.bat.
   2026-11-17).
 - **Weapons** have a few attack options, each with a stamina cost and damage.
   Block takes a set amount off the hit's damage.
-- **Blocking** costs no stamina.
+- **Defending** (changed 2026-11-18): against each boss attack you block,
+  dodge or take the hit.
+  - Block: 2 stamina (3 against a heavy boss attack), no skill check, takes
+    the set block amount off. No stamina, no block.
+  - Dodge: the timing check, 1 / 2 / 3 stamina within a boss turn.
+  - Take the hit: the full hit, no stamina.
+- **Heavy attacks are worth more per stamina** (2026-11-18), and a light
+  costs 2, so a full 3-hit combo empties the bar. With +2 back after
+  attacking, turns go attack, then reposition.
 - **Boss arcs:** front (the 1 hex it faces), left and right (2 hexes each),
   back (1 hex). Further out, hexes on the line between two arcs count as
   both.
@@ -143,8 +151,8 @@ decide what you can use. No separate spell bar.
 - Block: shield 10 + armour (light 10, heavy 30); claymore has no shield.
   The Block button shows the damage you'll take.
 - Attack damage (before the boss's block; buttons show what lands):
-  Longsword: Slash 1 stamina 25, Heavy slash 2 stamina 35. Claymore: Swing 1 stamina 35, Heavy swing 3 stamina
-  55; no shield. A weak arc adds 10. Bonuses are worked out on damage plus
+  Longsword: Slash 2 stamina 25, Heavy slash 3 stamina 45. Claymore: Swing 2 stamina 35, Heavy swing 4 stamina
+  70 (changed 2026-11-18); no shield. A weak arc adds 10. Bonuses are worked out on damage plus
   the weak bonus, then the boss's block comes off.
 - Bow (agreed 2026-11-18): Shot 3 stamina, 40 damage (PLACEHOLDER), from
   anywhere in the room, right next to the boss too (changed 2026-11-18). 10 arrows a fight
