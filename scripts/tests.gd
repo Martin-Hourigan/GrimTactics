@@ -273,6 +273,28 @@ static func run() -> int:
 	f.end_turn()
 	check(f.dodge_cost() == 1, "next boss turn it's back to 1")
 
+	print("the bow")
+	f = Fight.new("bow", "light", 1)
+	f.facing = 0
+	f.hero = f.boss + Fight.DIRS[0]
+	check(not f.can_attack(0), "no shooting from right next to it")
+	f.hero = f.boss + Fight.DIRS[0] * 3
+	check(f.can_attack(0), "it shoots from 3 hexes")
+	f.hero = f.boss + Fight.DIRS[0] * 3 + Fight.DIRS[1] * 2
+	check(Fight.dist(f.hero, f.boss) == 5 and not f.can_attack(0), "but not from 5")
+	f.hero = f.boss + Fight.DIRS[0] * 2
+	var hp1 := f.boss_hp
+	f.attack(0)
+	check(f.boss_hp == hp1 - (Fight.WEAPONS.bow.acts[0].dmg - Fight.BOSS_BLOCK) and f.stamina == Fight.STAMINA - 3, "a shot costs 3 stamina")
+	check(f.arrows == Fight.ARROWS - 1, "and one arrow")
+	f.attack(0)
+	check(not f.can_attack(0), "two shots and the bar is empty")
+	f.stamina = Fight.STAMINA
+	f.arrows = 0
+	check(not f.can_attack(0), "no arrows, no shot")
+	check(Fight.new("longsword", "light", 1, "bow").arrows == Fight.ARROWS and Fight.new("longsword", "light", 1, "claymore").arrows == 0, "arrows only come with a bow")
+	check(Fight.WEAPONS.bow.block == 0, "no shield with a bow")
+
 	print("swapping weapons")
 	f = Fight.new("longsword", "light", 1)
 	check(not f.can_swap(), "no second set, no swap")

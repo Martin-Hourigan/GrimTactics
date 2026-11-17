@@ -38,7 +38,7 @@ static func hero(f: int, weapon: String) -> ImageTexture:
 
 
 static func hero_image(f: int, weapon: String) -> Image:
-	var shape := _longsword_at if weapon == "longsword" else _claymore_at
+	var shape: Callable = {"longsword": _longsword_at, "claymore": _claymore_at, "bow": _bow_at}[weapon]
 	return _sample(f, HR, HERO_SCALE, shape)
 
 
@@ -55,7 +55,7 @@ static func icon(key: String) -> ImageTexture:
 
 static func icon_image(key: String) -> Image:
 	var shape: Callable = {
-		"longsword": _longsword_icon, "claymore": _claymore_icon,
+		"longsword": _longsword_icon, "claymore": _claymore_icon, "bow": _bow_icon,
 		"light": _light_icon, "heavy": _heavy_icon,
 	}[key]
 	var img := Image.create_empty(ICON, ICON, false, Image.FORMAT_RGBA8)
@@ -88,6 +88,18 @@ static func _claymore_icon(x: float, y: float) -> Variant:
 		return STEEL  # guard
 	if _seg(x, y, -5, 5, 10, -10, 1.4):
 		return EDGE  # blade
+	return null
+
+
+static func _bow_icon(x: float, y: float) -> Variant:
+	if _seg(x, y, -4, 0, 9, 0, 0.6):
+		return STEEL  # arrow
+	if _seg(x, y, 9, 0, 7, -2, 0.6) or _seg(x, y, 9, 0, 7, 2, 0.6):
+		return EDGE  # arrowhead
+	if absf(Vector2(x - 9, y).length() - 14) < 0.9 and x < -1:
+		return HERO  # bow
+	if absf(x + 1) < 0.5 and absf(y) < 9.8:
+		return HERO_DARK  # string
 	return null
 
 
@@ -169,6 +181,17 @@ static func _longsword_at(x: float, y: float) -> Variant:
 		return HERO_DARK  # shield on the left arm
 	if _seg(x, y, 1.5, 4.2, 9.0, 4.2, 0.55):
 		return HERO  # sword in the right hand
+	if _ell(x, y, -0.4, 0, 3.0, 5.0):
+		return HERO_DARK  # shoulders
+	return null
+
+
+## The hero holding a bow out front.
+static func _bow_at(x: float, y: float) -> Variant:
+	if _ell(x, y, 0.5, 0, 2.2, 2.2):
+		return HERO  # helmet
+	if absf(Vector2(x - 1, y).length() - 6) < 0.55 and x > 3.8:
+		return HERO  # bow
 	if _ell(x, y, -0.4, 0, 3.0, 5.0):
 		return HERO_DARK  # shoulders
 	return null

@@ -146,6 +146,10 @@ decide what you can use. No separate spell bar.
   Longsword: Slash 1 stamina 25, Heavy slash 2 stamina 35. Claymore: Swing 1 stamina 35, Heavy swing 3 stamina
   55; no shield. A weak arc adds 10. Bonuses are worked out on damage plus
   the weak bonus, then the boss's block comes off.
+- Bow (agreed 2026-11-18): Shot 3 stamina, 40 damage (PLACEHOLDER), from
+  2 to 4 hexes away, not from right next to the boss. 10 arrows a fight
+  (later: 10 from leaving the bonfire). Weak arcs and combos count; no
+  running attack; no block.
 - Running slash / Running swing replace Slash / Swing after 2 hexes moved
   since your last attack that turn; same stamina.
 - Light armour: block 10. Heavy: block 30, the dodge bar fills in 0.75 of

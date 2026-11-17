@@ -30,7 +30,11 @@ const WEAPONS := {
 		{"label": "Swing", "st": 1, "dmg": 35, "run": "Running swing"},
 		{"label": "Heavy swing", "st": 3, "dmg": 55},
 	]},
+	"bow": {"label": "Bow", "block": 0, "range": [2, 4], "arrows": true, "acts": [
+		{"label": "Shot", "st": 3, "dmg": 40},
+	]},
 }
+const ARROWS := 10  ## arrows for the fight (later: from leaving the bonfire)
 ## block: damage taken off each blocked hit. bar: how long the dodge bar takes to fill (x)
 const ARMOURS := {
 	"light": {"label": "Light armour", "block": 10, "bar": 1.0},
@@ -72,6 +76,7 @@ var dodges := 0  ## dodges made this boss turn
 var flasks := FLASKS
 var hero := Vector2i(0, 3)
 var attacked := false
+var arrows := 0  ## arrows left; only given when a bow is taken
 var hits := 0  ## hits in a row this turn without moving
 var run := 0  ## hexes moved since the last attack this turn
 var boss := Vector2i.ZERO
@@ -91,6 +96,8 @@ var rng := RandomNumberGenerator.new()
 func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1, spare_ := "") -> void:
 	weapon = weapon_
 	spare = spare_
+	if WEAPONS[weapon].has("arrows") or (spare != "" and WEAPONS[spare].has("arrows")):
+		arrows = ARROWS
 	armour = armour_
 	rng.seed = seed_
 	var pool := CARDS.duplicate()
@@ -242,9 +249,16 @@ func attack_damage(i: int) -> int:
 	return maxi(0, roundi(dmg * (1.0 + attack_bonus(i))) - BOSS_BLOCK)
 
 
+## How near and how far the weapon in hand reaches, in hexes.
+func reach() -> Array:
+	return WEAPONS[weapon].get("range", [1, 1])
+
+
 func can_attack(i: int) -> bool:
-	return phase == "hero" and dist(hero, boss) == 1 \
-		and stamina >= WEAPONS[weapon].acts[i].st
+	var d := dist(hero, boss)
+	var w: Dictionary = WEAPONS[weapon]
+	return phase == "hero" and d >= reach()[0] and d <= reach()[1] \
+		and stamina >= w.acts[i].st and (arrows > 0 or not w.has("arrows"))
 
 
 func attack(i: int) -> void:
@@ -253,10 +267,12 @@ func attack(i: int) -> void:
 	var dmg := attack_damage(i)
 	stamina -= WEAPONS[weapon].acts[i].st
 	attacked = true
+	if WEAPONS[weapon].has("arrows"):
+		arrows -= 1
 	hits = 1 if running(i) else hits + 1
 	run = 0
 	boss_hp = maxi(0, boss_hp - dmg)
-	events.append({"type": "hit_boss", "dmg": dmg})
+	events.append({"type": "hit_boss", "dmg": dmg, "from": hero})
 	if boss_hp <= 0:
 		phase = "win"
 		return

@@ -35,6 +35,7 @@ var pause := 0.0
 var flash := 0.0
 var flash_hexes: Array[Vector2i] = []
 var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
+var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
 var check := {}  ## the dodge check while it runs: {to, t, diff, sweet, done, ok}
 var shot := ""
@@ -75,6 +76,9 @@ func _ready() -> void:
 	var pk := args.find("--pick")
 	if pk >= 0 and pk + 1 < args.size():
 		picking = int(args[pk + 1])
+	var wi := args.find("--weapons")
+	if wi >= 0 and wi + 1 < args.size():
+		weapons = Array(args[wi + 1].split(","))
 	if "--fight" in args or auto > 0:
 		start()
 	font = ThemeDB.fallback_font
@@ -142,6 +146,10 @@ func _process(delta: float) -> void:
 	update_note = maxf(0.0, update_note - delta)
 	if screen == "fight":
 		_tick(delta)
+	if not arrow.is_empty():
+		arrow.t += delta
+		if arrow.t > 0.25:
+			arrow = {}
 	for p in popups:
 		p.t += delta
 	popups = popups.filter(func(p): return p.t < 0.9)
@@ -184,6 +192,8 @@ func _take_events() -> void:
 		match e.type:
 			"hit_boss":
 				_popup(str(e.dmg), hex_pos(fight.boss) + Vector2(0, -12), TEXT)
+				if Fight.dist(e.from, fight.boss) > 1:
+					arrow = {"from": hex_pos(e.from), "to": hex_pos(fight.boss), "t": 0.0}
 			"hit_hero":
 				_popup(str(e.dmg), hex_pos(fight.hero) + Vector2(0, -8), HURT)
 			"dodged":
@@ -515,6 +525,9 @@ func _draw() -> void:
 	_draw_panel()
 	if not check.is_empty():
 		_draw_check()
+	if not arrow.is_empty():
+		var head: Vector2 = arrow.from.lerp(arrow.to, minf(1.0, arrow.t / 0.15))
+		draw_line(head.lerp(arrow.from, 0.3), head, TEXT)
 	for p in popups:
 		var a: float = 1.0 - p.t / 0.9
 		var c: Color = p.colour
@@ -678,6 +691,8 @@ func _draw_panel() -> void:
 		draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), GOOD if k < fight.stamina else OFF)
 	for k in Fight.FLASKS:
 		draw_rect(Rect2(o + Vector2(30 + k * 10, 80), Vector2(7, 7)), HURT if k < fight.flasks else OFF)
+	if fight.arrows > 0 or Fight.WEAPONS[fight.weapon].has("arrows") or Fight.WEAPONS[fight.spare].has("arrows"):
+		_text("arrows %d" % fight.arrows, o + Vector2(120, 87), TEXT if fight.arrows > 0 else DIM)
 	if fight.phase == "hero":
 		var acts: Array = Fight.WEAPONS[fight.weapon].acts
 		for i in acts.size():
