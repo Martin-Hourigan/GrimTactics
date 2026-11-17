@@ -107,7 +107,7 @@ func _tick(delta: float) -> void:
 			if check.t > 0.35:
 				fight.defend_dodge(check.to, check.ok)
 				check = {}
-		elif Fight.bar(check.t, check.diff) >= 1.0:
+		elif Fight.bar(check.t, check.diff, fight.armour) >= 1.0:
 			_stop_check()
 	elif fight.phase == "boss":
 		pause += delta
@@ -150,11 +150,11 @@ func _popup(text: String, pos: Vector2, colour: Color) -> void:
 func _start_check(to: Vector2i) -> void:
 	picking_dodge = false
 	var diff: int = fight.incoming.dodge
-	check = {"to": to, "t": 0.0, "diff": diff, "sweet": Fight.sweet(diff, fight.armour), "done": false, "ok": false, "at": 0.0}
+	check = {"to": to, "t": 0.0, "diff": diff, "sweet": Fight.sweet(diff), "done": false, "ok": false, "at": 0.0}
 
 
 func _stop_check() -> void:
-	var p := minf(1.0, Fight.bar(check.t, check.diff))
+	var p := minf(1.0, Fight.bar(check.t, check.diff, fight.armour))
 	check.at = p
 	check.ok = p >= check.sweet.x and p <= check.sweet.y
 	check.done = true
@@ -507,7 +507,7 @@ func _draw_check() -> void:
 	draw_rect(bar, OFF)
 	var s: Vector2 = check.sweet
 	draw_rect(Rect2(bar.position.x + roundf(bar.size.x * s.x), bar.position.y, maxf(1.0, roundf(bar.size.x * (s.y - s.x))), bar.size.y), GOOD.darkened(0.4))
-	var p: float = check.at if check.done else minf(1.0, Fight.bar(check.t, check.diff))
+	var p: float = check.at if check.done else minf(1.0, Fight.bar(check.t, check.diff, fight.armour))
 	var c := TEXT
 	if check.done:
 		c = GOOD if check.ok else HURT

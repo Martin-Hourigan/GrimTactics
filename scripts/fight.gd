@@ -31,10 +31,10 @@ const WEAPONS := {
 		{"label": "Heavy swing", "st": 3, "dmg": 55},
 	]},
 }
-## block: damage taken off each blocked hit. window: how wide the dodge sweet spot is
+## block: damage taken off each blocked hit. bar: how long the dodge bar takes to fill (x)
 const ARMOURS := {
-	"light": {"label": "Light armour", "block": 10, "window": 1.4},
-	"heavy": {"label": "Heavy armour", "block": 30, "window": 0.7},
+	"light": {"label": "Light armour", "block": 10, "bar": 1.0},
+	"heavy": {"label": "Heavy armour", "block": 30, "bar": 0.75},
 }
 
 # ---- boss (all PLACEHOLDER) ----
@@ -538,15 +538,15 @@ func _defended() -> void:
 ## How long the bar takes to fill, by the attack's dodge difficulty (PLACEHOLDER).
 const BAR_TIME := {1: 1.3, 2: 1.1, 3: 0.9}
 const SWEET_START := 0.72
-const SWEET_WIDTH := {1: 0.16, 2: 0.12, 3: 0.08}
+const SWEET_WIDTH := {1: 0.11, 2: 0.08, 3: 0.06}
 
 
 ## How full the bar is t seconds in: it speeds up the fuller it gets.
-static func bar(t: float, diff: int) -> float:
-	return pow(t / BAR_TIME[diff], 2.0)
+## Heavy armour fills it sooner, so there's less time to react.
+static func bar(t: float, diff: int, armour_ := "light") -> float:
+	return pow(t / (BAR_TIME[diff] * ARMOURS[armour_].bar), 2.0)
 
 
-## The sweet spot as (start, end) along the bar.
-static func sweet(diff: int, armour_: String) -> Vector2:
-	var w: float = SWEET_WIDTH[diff] * ARMOURS[armour_].window
-	return Vector2(SWEET_START, minf(1.0, SWEET_START + w))
+## The sweet spot as (start, end) along the bar; the same whatever the armour.
+static func sweet(diff: int) -> Vector2:
+	return Vector2(SWEET_START, SWEET_START + SWEET_WIDTH[diff])

@@ -220,10 +220,9 @@ static func run() -> int:
 	check(f.phase == "boss" and f.hp == Fight.HERO_HP, "behind an arc attack is safe")
 
 	print("the dodge check")
-	var light := Fight.sweet(2, "light")
-	var heavy := Fight.sweet(2, "heavy")
-	check(light.y - light.x > heavy.y - heavy.x, "light armour has a wider sweet spot")
-	check(Fight.sweet(3, "light").y - Fight.sweet(3, "light").x < light.y - light.x, "harder attacks have a narrower one")
+	var sw := Fight.sweet(2)
+	check(Fight.sweet(3).y - Fight.sweet(3).x < sw.y - sw.x, "harder attacks have a narrower sweet spot")
+	check(Fight.bar(0.5, 2, "heavy") > Fight.bar(0.5, 2, "light"), "heavy armour fills the bar sooner")
 	var early := Fight.bar(0.2, 1) - Fight.bar(0.1, 1)
 	var late := Fight.bar(1.2, 1) - Fight.bar(1.1, 1)
 	check(late > early, "the bar speeds up as it fills")

@@ -79,7 +79,9 @@ my guess, for Martin to change. Run it with play.bat.
 - You choose the hex you dodge to first (1 hex), then the window opens.
 - The attack sets how hard it is: a narrower sweet spot and a faster bar for
   a quicker attack.
-- Lighter armour gives a wider sweet spot.
+- The sweet spot is the same size whatever the armour (2026-11-17: all as
+  hard as the old heavy armour); heavy armour fills the bar sooner, so
+  there's less time to react.
 - One tap. No half dodge.
 - While the window is open the game waits for you.
 
@@ -107,8 +109,8 @@ debug-signed, build/GrimTactics.apk).
 ## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
 - **Longsword and shield:** one-handed sword, shield adds block.
 - **Claymore:** two-handed, no shield, bigger hits.
-- **Light armour / heavy armour:** to test the dodge window. Light = wider
-  sweet spot, less block; heavy = narrower sweet spot, more block.
+- **Light armour / heavy armour:** to test the dodge window. Light = more
+  time to react, less block; heavy = the bar fills sooner, more block.
 
 ## Magic (agreed 2026-11-14, not in step 1)
 Board game style: spells cost stamina like any attack, magic damage is its
@@ -133,11 +135,11 @@ decide what you can use. No separate spell bar.
   the weak bonus, then the boss's block comes off.
 - Running slash / Running swing replace Slash / Swing after 2 hexes moved
   since your last attack that turn; same stamina.
-- Light armour: block 10, sweet spot x1.4. Heavy: block 30, sweet spot
-  x0.7.
+- Light armour: block 10. Heavy: block 30, the dodge bar fills in 0.75 of
+  the time.
 - Dodge check: the bar fills in 1.3 / 1.1 / 0.9 s (dodge difficulty 1-3),
-  speeding up; the sweet spot starts 72% along and is 16 / 12 / 8% wide
-  before armour. Click or Space to stop it.
+  speeding up; the sweet spot starts 72% along and is 11 / 8 / 6% wide
+  (the old heavy armour sizes). Click or Space to stop it.
 - Boss (a knight with sword and shield): health 400, block 10, heats up at
   180. Card attacks are 10x what they were (Lunge 50, Overhead 80...). Deck of 4 dealt from 6 cards: Lunge, Sweep, Turn and cut, Overhead,
   Shield bash, Step back thrust. Heat up adds Leap or Flurry. Aim budgets
