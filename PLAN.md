@@ -151,14 +151,16 @@ decide what you can use. No separate spell bar.
 - Block: shield 10 + armour (light 10, heavy 30); claymore has no shield.
   The Block button shows the damage you'll take.
 - Attack damage (before the boss's block; buttons show what lands):
-  Longsword: Slash 2 stamina 25, Heavy slash 3 stamina 45. Claymore: Swing 2 stamina 35, Heavy swing 4 stamina
+  Every weapon has a light attack and a heavy attack, no weapon-specific
+  names (2026-11-18). Longsword: light 2 stamina 25, heavy 3 stamina 45.
+  Claymore: light 2 stamina 35, heavy 4 stamina
   70 (changed 2026-11-18); no shield. A weak arc adds 10. Bonuses are worked out on damage plus
   the weak bonus, then the boss's block comes off.
-- Bow (agreed 2026-11-18): Shot 3 stamina, 40 damage (PLACEHOLDER), from
+- Bow (agreed 2026-11-18): light attack 3 stamina, 40 damage (PLACEHOLDER), from
   anywhere in the room, right next to the boss too (changed 2026-11-18). 10 arrows a fight
   (later: 10 from leaving the bonfire). Weak arcs and combos count; no
   running attack; no block.
-- Running slash / Running swing replace Slash / Swing after 2 hexes moved
+- The running attack replaces the light attack after 2 hexes moved
   since your last attack that turn; same stamina.
 - Light armour: block 10. Heavy: block 30, the dodge bar fills in 0.75 of
   the time.

@@ -96,7 +96,7 @@ static func run() -> int:
 	f.facing = 5
 	check(not f.weak() and f.attack_damage(0) == base - Fight.BOSS_BLOCK, "not weak from the front, and no dice")
 	f.stamina = 2
-	check(not f.can_attack(1), "the heavy swing needs 3 stamina")
+	check(not f.can_attack(1), "the claymore heavy attack needs more stamina")
 
 	print("combos and running attacks")
 	f = Fight.new("longsword", "light", 1)
@@ -120,7 +120,7 @@ static func run() -> int:
 	f.hero = f.boss + Fight.DIRS[3] * 3
 	f.move(f.boss + Fight.DIRS[3])
 	check(f.running(0) and not f.running(1), "two hexes moved turns the first attack into a running one")
-	check(f.attack_label(0) == "Running slash" and f.attack_damage(0) == roundi(base * 1.2) - Fight.BOSS_BLOCK, "running slash +20%")
+	check(f.attack_label(0) == "Running attack" and f.attack_damage(0) == roundi(base * 1.2) - Fight.BOSS_BLOCK, "running attack +20%")
 	f.attack(0)
 	check(not f.running(0) and f.attack_bonus(0) == 0.1, "after a running attack the next hit is the second in the combo")
 	f.attack(0)

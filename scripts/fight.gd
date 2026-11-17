@@ -25,15 +25,15 @@ const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st
 ## Each weapon's first attack becomes its "run" attack after a run.
 const WEAPONS := {
 	"longsword": {"label": "Longsword & shield", "block": 10, "acts": [
-		{"label": "Slash", "st": 2, "dmg": 25, "run": "Running slash"},
-		{"label": "Heavy slash", "st": 3, "dmg": 45},
+		{"label": "Light attack", "st": 2, "dmg": 25, "run": "Running attack"},
+		{"label": "Heavy attack", "st": 3, "dmg": 45},
 	]},
 	"claymore": {"label": "Claymore", "block": 0, "acts": [
-		{"label": "Swing", "st": 2, "dmg": 35, "run": "Running swing"},
-		{"label": "Heavy swing", "st": 4, "dmg": 70},
+		{"label": "Light attack", "st": 2, "dmg": 35, "run": "Running attack"},
+		{"label": "Heavy attack", "st": 4, "dmg": 70},
 	]},
 	"bow": {"label": "Bow", "block": 0, "range": [1, 2 * ROOM], "arrows": true, "acts": [
-		{"label": "Shot", "st": 3, "dmg": 40},
+		{"label": "Light attack", "st": 3, "dmg": 40},
 	]},
 }
 const ARROWS := 10  ## arrows for the fight (later: from leaving the bonfire)
