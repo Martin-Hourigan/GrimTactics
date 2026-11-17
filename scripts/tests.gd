@@ -102,14 +102,14 @@ static func run() -> int:
 	f.facing = 0
 	base = Fight.WEAPONS.longsword.acts[0].dmg
 	var dealt: Array[int] = []
-	for k in 4:
+	for k in 5:
 		var hp0 := f.boss_hp
 		f.attack(0)
 		dealt.append(hp0 - f.boss_hp)
 	check(dealt[0] == base - Fight.BOSS_BLOCK, "the first hit has no bonus")
 	check(dealt[1] == roundi(base * 1.1) - Fight.BOSS_BLOCK, "the second hit +10%")
 	check(dealt[2] == roundi(base * 1.2) - Fight.BOSS_BLOCK, "the third hit +20%")
-	check(dealt[3] == dealt[0], "no bonus after the third")
+	check(dealt[3] == dealt[0] and dealt[4] == dealt[1], "after the third hit the combo starts again")
 	f.stamina = Fight.STAMINA
 	f.move(f.boss + Fight.DIRS[1])
 	check(f.attack_bonus(0) == 0.0 and not f.running(0), "a step breaks the combo, one step isn't a run")

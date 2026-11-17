@@ -16,7 +16,7 @@ const FLASKS := 2
 const FLASK_HEAL := 100
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
 const WEAK_BONUS := 10  ## extra damage from a weak arc
-const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; none after
+const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; then it starts again
 const RUN_STEPS := 2  ## hexes moved since the last attack that turn the first attack into a running one
 const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
 ## Each weapon's first attack becomes its "run" attack after a run.
@@ -230,7 +230,7 @@ func attack_label(i: int) -> String:
 func attack_bonus(i: int) -> float:
 	if running(i):
 		return RUN_BONUS
-	return COMBO[hits] if hits < COMBO.size() else 0.0
+	return COMBO[hits % COMBO.size()]
 
 
 ## The damage attack i does to the boss from where the hero stands now.

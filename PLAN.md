@@ -29,7 +29,8 @@ my guess, for Martin to change. Run it with play.bat.
   predictable damage is better). Blocking takes a set amount off too
   (2026-11-17). No dice anywhere now.
 - **Combos** (agreed 2026-11-17): the 2nd hit in a row does +10%, the 3rd
-  +20%; only those 3 hits (some weapons may change this later). Moving or
+  +20%, then it starts again: the 4th is a 1st hit (2026-11-17). Weapon
+  classes may have their own combos later. Moving or
   the end of your turn breaks the combo.
 - **Running attack** (agreed 2026-11-17): after moving 2 hexes, the
   standard attack becomes a running attack with +20%. It counts as the 1st
