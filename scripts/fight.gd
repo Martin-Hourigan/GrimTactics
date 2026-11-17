@@ -10,8 +10,8 @@ const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1),
 # ---- hero (all PLACEHOLDER) ----
 const HERO_HP := 200
 const STAMINA := 10  ## the stamina bar; the fight starts with it full
-const STAMINA_BACK := 4  ## stamina regained at the start of every hero turn
-const REST_BONUS := 4  ## extra stamina back after a turn with no attack
+const STAMINA_BACK := 2  ## stamina regained at the start of every hero turn
+const REST_BONUS := 6  ## extra stamina back after a turn with no attack
 const FLASKS := 2
 const FLASK_HEAL := 100
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more

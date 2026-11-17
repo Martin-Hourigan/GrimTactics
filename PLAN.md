@@ -122,8 +122,8 @@ decide what you can use. No separate spell bar.
   the middle facing it. The hero goes first.
 - All damage and health were multiplied by 10 on 2026-11-17 so the combo
   percentages show.
-- Hero: health 200, a stamina bar of 10 (starts full, +4 each turn, +8 after a turn with no
-  attack; changed 2026-11-17), 2
+- Hero: health 200, a stamina bar of 10 (starts full, +2 after a turn you attacked, +8
+  after a turn with no attack; changed 2026-11-17), 2
   flasks healing 100 each (drunk on your turn,
   free). Attacks from next to the boss, as many as stamina pays for. Moving and attacking in
   any order.
