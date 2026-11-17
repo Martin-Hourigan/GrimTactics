@@ -30,7 +30,7 @@ const WEAPONS := {
 		{"label": "Swing", "st": 1, "dmg": 35, "run": "Running swing"},
 		{"label": "Heavy swing", "st": 3, "dmg": 55},
 	]},
-	"bow": {"label": "Bow", "block": 0, "range": [2, 4], "arrows": true, "acts": [
+	"bow": {"label": "Bow", "block": 0, "range": [1, 2 * ROOM], "arrows": true, "acts": [
 		{"label": "Shot", "st": 3, "dmg": 40},
 	]},
 }

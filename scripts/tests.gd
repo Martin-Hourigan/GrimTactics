@@ -277,11 +277,11 @@ static func run() -> int:
 	f = Fight.new("bow", "light", 1)
 	f.facing = 0
 	f.hero = f.boss + Fight.DIRS[0]
-	check(not f.can_attack(0), "no shooting from right next to it")
-	f.hero = f.boss + Fight.DIRS[0] * 3
-	check(f.can_attack(0), "it shoots from 3 hexes")
-	f.hero = f.boss + Fight.DIRS[0] * 3 + Fight.DIRS[1] * 2
-	check(Fight.dist(f.hero, f.boss) == 5 and not f.can_attack(0), "but not from 5")
+	check(f.can_attack(0), "it shoots from right next to it")
+	f.boss = Vector2i(-3, 0)
+	f.hero = Vector2i(3, 0)
+	check(Fight.dist(f.hero, f.boss) == 2 * Fight.ROOM and f.can_attack(0), "and from across the whole room")
+	f.boss = Vector2i.ZERO
 	f.hero = f.boss + Fight.DIRS[0] * 2
 	var hp1 := f.boss_hp
 	f.attack(0)
