@@ -26,8 +26,8 @@ my guess, for Martin to change. Run it with play.bat.
     dodge kept back every turn was too easy).
   - Health only goes down from hits and only comes back with a flask.
 - **Attacks do set damage, no dice** (changed 2026-11-17: Dark Souls'
-  predictable damage is better). Blocks still roll dice, with the odds
-  shown before you commit.
+  predictable damage is better). Blocking takes a set amount off too
+  (2026-11-17). No dice anywhere now.
 - **Combos** (agreed 2026-11-17): the 2nd hit in a row does +10%, the 3rd
   +20%; only those 3 hits (some weapons may change this later). Moving or
   the end of your turn breaks the combo.
@@ -43,10 +43,10 @@ my guess, for Martin to change. Run it with play.bat.
   them up; die first and they're gone. No limit on deaths.
 
 ## From the board game (to confirm)
-- **Moving:** the first step each turn is free, every extra step costs 1
-  stamina.
+- **Moving:** every step costs 1 stamina, no free first step (changed
+  2026-11-17).
 - **Weapons** have a few attack options, each with a stamina cost and damage.
-  Block takes away a roll from the hit's damage.
+  Block takes a set amount off the hit's damage.
 - **Blocking** costs no stamina.
 - **Boss arcs:** front (the 1 hex it faces), left and right (2 hexes each),
   back (1 hex). Further out, hexes on the line between two arcs count as
@@ -100,11 +100,10 @@ with the phone), taps act as clicks, an Android export preset (arm64 APK,
 debug-signed, build/GrimTactics.apk).
 
 ## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
-- **Longsword and shield:** one-handed sword, shield adds block dice.
+- **Longsword and shield:** one-handed sword, shield adds block.
 - **Claymore:** two-handed, no shield, bigger hits.
 - **Light armour / heavy armour:** to test the dodge window. Light = wider
-  sweet spot, fewer block dice; heavy = narrower sweet spot, more block
-  dice.
+  sweet spot, less block; heavy = narrower sweet spot, more block.
 
 ## Magic (agreed 2026-11-14, not in step 1)
 Board game style: spells cost stamina like any attack, magic damage is its
@@ -116,21 +115,21 @@ decide what you can use. No separate spell bar.
   the middle facing it. The hero goes first.
 - All damage and health were multiplied by 10 on 2026-11-17 so the combo
   percentages show.
-- Hero: health 200, a stamina bar of 6 (starts full, +2 each turn, +4 after a turn with no attack), 2
+- Hero: health 200, a stamina bar of 10 (starts full, +4 each turn, +8 after a turn with no
+  attack; changed 2026-11-17), 2
   flasks healing 100 each (drunk on your turn,
   free). Attacks from next to the boss, as many as stamina pays for. Moving and attacking in
   any order.
-- Block dice: black 0,10,10,10,20,20; blue 10,10,20,20,20,30. The Block
-  button shows lowest-highest and average damage taken.
+- Block: shield 10 + armour (light 10, heavy 30); claymore has no shield.
+  The Block button shows the damage you'll take.
 - Attack damage (before the boss's block; buttons show what lands):
-  Longsword: Slash 1 stamina 25, Heavy slash 2 stamina 35; the shield adds
-  a black block die. Claymore: Swing 1 stamina 35, Heavy swing 3 stamina
+  Longsword: Slash 1 stamina 25, Heavy slash 2 stamina 35. Claymore: Swing 1 stamina 35, Heavy swing 3 stamina
   55; no shield. A weak arc adds 10. Bonuses are worked out on damage plus
   the weak bonus, then the boss's block comes off.
 - Running slash / Running swing replace Slash / Swing after 2 hexes moved
   since your last attack that turn; same stamina.
-- Light armour: 1 black block die, sweet spot x1.4. Heavy: black + blue,
-  sweet spot x0.7.
+- Light armour: block 10, sweet spot x1.4. Heavy: block 30, sweet spot
+  x0.7.
 - Dodge check: the bar fills in 1.3 / 1.1 / 0.9 s (dodge difficulty 1-3),
   speeding up; the sweet spot starts 72% along and is 16 / 12 / 8% wide
   before armour. Click or Space to stop it.

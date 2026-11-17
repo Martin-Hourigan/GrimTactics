@@ -7,16 +7,11 @@ const ROOM := 3  ## room radius in hexes (PLACEHOLDER)
 ## Axial directions, counter-clockwise from the right. Facing f points along DIRS[f].
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)]
 
-const DICE := {  ## block dice faces (PLACEHOLDER)
-	"black": [0, 10, 10, 10, 20, 20],
-	"blue": [10, 10, 20, 20, 20, 30],
-}
-
 # ---- hero (all PLACEHOLDER) ----
 const HERO_HP := 200
-const STAMINA := 6  ## the stamina bar; the fight starts with it full
-const STAMINA_BACK := 2  ## stamina regained at the start of every hero turn
-const REST_BONUS := 2  ## extra stamina back after a turn with no attack
+const STAMINA := 10  ## the stamina bar; the fight starts with it full
+const STAMINA_BACK := 4  ## stamina regained at the start of every hero turn
+const REST_BONUS := 4  ## extra stamina back after a turn with no attack
 const FLASKS := 2
 const FLASK_HEAL := 100
 const DODGE_COST := 1  ## the first dodge in a boss turn; each further dodge costs this much more
@@ -26,19 +21,19 @@ const RUN_STEPS := 2  ## hexes moved since the last attack that turn the first a
 const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
 ## Each weapon's first attack becomes its "run" attack after a run.
 const WEAPONS := {
-	"longsword": {"label": "Longsword & shield", "block": ["black"], "acts": [
+	"longsword": {"label": "Longsword & shield", "block": 10, "acts": [
 		{"label": "Slash", "st": 1, "dmg": 25, "run": "Running slash"},
 		{"label": "Heavy slash", "st": 2, "dmg": 35},
 	]},
-	"claymore": {"label": "Claymore", "block": [], "acts": [
+	"claymore": {"label": "Claymore", "block": 0, "acts": [
 		{"label": "Swing", "st": 1, "dmg": 35, "run": "Running swing"},
 		{"label": "Heavy swing", "st": 3, "dmg": 55},
 	]},
 }
-## window: how wide the dodge sweet spot is
+## block: damage taken off each blocked hit. window: how wide the dodge sweet spot is
 const ARMOURS := {
-	"light": {"label": "Light armour", "block": ["black"], "window": 1.4},
-	"heavy": {"label": "Heavy armour", "block": ["black", "blue"], "window": 0.7},
+	"light": {"label": "Light armour", "block": 10, "window": 1.4},
+	"heavy": {"label": "Heavy armour", "block": 30, "window": 0.7},
 }
 
 # ---- boss (all PLACEHOLDER) ----
@@ -74,7 +69,6 @@ var stamina := STAMINA
 var dodges := 0  ## dodges made this boss turn
 var flasks := FLASKS
 var hero := Vector2i(0, 3)
-var free_step := true
 var attacked := false
 var hits := 0  ## hits in a row this turn without moving
 var run := 0  ## hexes moved since the last attack this turn
@@ -185,51 +179,13 @@ func steps(c: Vector2i) -> int:
 	return -1
 
 
-# ---- dice ----
-
-## Chance of each total for these dice.
-static func spread(dice: Array) -> Dictionary:
-	var out := {0: 1.0}
-	for die in dice:
-		var next := {}
-		for total in out:
-			for face in DICE[die]:
-				next[total + face] = next.get(total + face, 0.0) + out[total] / 6.0
-		out = next
-	return out
-
-
-## Lowest, highest and average damage taken from dmg when blocking with these dice.
-static func block_odds(dmg: int, dice: Array) -> Dictionary:
-	return _odds(spread(dice), func(total): return maxi(0, dmg - total))
-
-
-static func _odds(sp: Dictionary, f: Callable) -> Dictionary:
-	var lo := 999
-	var hi := -1
-	var avg := 0.0
-	for total in sp:
-		var v: int = f.call(total)
-		lo = mini(lo, v)
-		hi = maxi(hi, v)
-		avg += v * sp[total]
-	return {"min": lo, "max": hi, "avg": avg}
-
-
-func roll(dice: Array) -> int:
-	var total := 0
-	for die in dice:
-		total += DICE[die][rng.randi_range(0, 5)]
-	return total
-
-
 # ---- the hero's turn ----
 
 func move_cost(c: Vector2i) -> int:
 	var n := steps(c)
 	if n < 0:
 		return -1
-	return maxi(0, n - (1 if free_step else 0))
+	return n
 
 
 func can_move(c: Vector2i) -> bool:
@@ -245,7 +201,6 @@ func move(c: Vector2i) -> void:
 	stamina -= move_cost(c)
 	run += steps(c)
 	hits = 0
-	free_step = false
 	hero = c
 
 
@@ -346,7 +301,6 @@ func step() -> void:
 	if queue.is_empty():
 		phase = "hero"
 		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
-		free_step = true
 		attacked = false
 		hits = 0
 		run = 0
@@ -483,15 +437,20 @@ func _boss_attack(s: Dictionary) -> void:
 		phase = "defend"
 
 
-func block_dice() -> Array:
+## Damage taken off a blocked hit: shield plus armour.
+func block() -> int:
 	return WEAPONS[weapon].block + ARMOURS[armour].block
+
+
+## What blocking the incoming hit would cost in health.
+func block_damage() -> int:
+	return maxi(0, incoming.dmg - block())
 
 
 func defend_block() -> void:
 	if phase != "defend":
 		return
-	var dmg := maxi(0, incoming.dmg - roll(block_dice()))
-	_hurt(dmg)
+	_hurt(block_damage())
 	if incoming.push:
 		_push()
 	_defended()

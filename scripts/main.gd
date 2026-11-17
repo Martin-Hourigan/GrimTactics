@@ -446,10 +446,6 @@ func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
 	draw_rect(Rect2(pos, Vector2(roundf(w * v / vmax), 4)), c)
 
 
-func _odds(o: Dictionary) -> String:
-	return "%d-%d  avg %.1f" % [o.min, o.max, o.avg]
-
-
 func _draw_panel() -> void:
 	_text("Boss", Vector2(300, 16), TEXT)
 	_bar(Vector2(330, 10), 142, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
@@ -483,7 +479,7 @@ func _draw_panel() -> void:
 		var r := _button(1)
 		_box(r, "", true)
 		_text("Block", r.position + Vector2(6, 14), TEXT)
-		_text(_odds(Fight.block_odds(inc.dmg, fight.block_dice())), r.position + Vector2(96, 14), TEXT)
+		_text(str(fight.block_damage()), r.position + Vector2(140, 14), TEXT)
 		_box(_button(2), "Dodge", fight.can_dodge(), picking_dodge)
 		var dc := fight.dodge_cost()
 		var dcol := TEXT if fight.can_dodge() else DIM

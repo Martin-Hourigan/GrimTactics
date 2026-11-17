@@ -69,24 +69,15 @@ static func run() -> int:
 	f.facing = 3
 	check(f.arcs_of(Vector2i(1, 0)) == ["back"], "turned round, front becomes back")
 
-	print("block dice and odds")
-	var sp := Fight.spread(["black"])
-	var total := 0.0
-	for k in sp:
-		total += sp[k]
-	check(absf(total - 1.0) < 0.0001, "chances add up to 1")
-	check(Fight.block_odds(50, ["blue"]).max == 40 and Fight.block_odds(50, ["blue"]).min == 20, "blocking 50 with a blue die takes 20-40")
-
 	print("moving")
 	f = Fight.new("longsword", "light", 1)
-	check(f.move_cost(f.hero + Fight.DIRS[2]) == 0, "first step is free")
-	check(f.move_cost(Vector2i(0, 1)) == 1, "two steps cost 1 stamina")
+	check(f.move_cost(f.hero + Fight.DIRS[2]) == 1, "one step costs 1 stamina")
+	check(f.move_cost(Vector2i(0, 1)) == 2, "two steps cost 2")
 	f.move(Vector2i(0, 2))
-	check(f.stamina == Fight.STAMINA and f.hero == Vector2i(0, 2), "free step taken")
-	check(f.move_cost(Vector2i(0, 1)) == 1, "after the free step every step costs 1")
+	check(f.stamina == Fight.STAMINA - 1 and f.hero == Vector2i(0, 2), "paid for the step")
 	check(not f.can_move(f.boss), "can't stand on the boss")
 	f.move(Vector2i(0, 1))
-	check(f.stamina == Fight.STAMINA - 1, "paid for the second step")
+	check(f.stamina == Fight.STAMINA - 2, "paid for the second step")
 
 	print("attacking")
 	check(f.can_attack(0), "next to the boss it can attack")
@@ -203,7 +194,7 @@ static func run() -> int:
 	check(f.phase == "defend" and f.incoming.dmg == 60, "standing in the attack has to be defended")
 	var hp := f.hp
 	f.defend_block()
-	check(f.hp >= hp - 60 and f.hp <= hp - 60 + 40, "blocking takes off what it rolled")
+	check(f.hp == hp - 60 + f.block() and f.block() == Fight.WEAPONS.longsword.block + Fight.ARMOURS.light.block, "blocking takes off a set amount: shield plus armour")
 	check(f.phase == "boss", "then the boss carries on")
 	f = _attacked("longsword", "light", 60, false)
 	var to: Vector2i = f.dodge_hexes()[1]
