@@ -4,6 +4,15 @@ extends RefCounted
 ## No drawing here; main.gd shows it, tests.gd checks it.
 
 const ROOM := 3  ## room radius in hexes (PLACEHOLDER)
+## The ways to play, picked after Play (PLACEHOLDER names):
+##   stamina: the stamina bar pays for moving, attacks, blocks and dodges;
+##   one: no stamina, move up to MOVES hexes and attack once a turn;
+##   order: as one, but who goes next is set by speed.
+const MODES := {"stamina": "Stamina", "one": "One attack", "order": "Turn order"}
+const MOVES := 3  ## hexes a turn without stamina
+## How long the dodge bar takes to fill, times this (PLACEHOLDER).
+const PACE := {"slow": 1.2, "mid": 1.0, "fast": 0.8}
+const BOSS_SPEED := 8  ## turn order speed (PLACEHOLDER)
 ## Axial directions, counter-clockwise from the right. Facing f points along DIRS[f].
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)]
 
@@ -23,17 +32,18 @@ const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a
 const RUN_STEPS := 2  ## hexes moved since the last attack that turn the first attack into a running one
 const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
 ## Each weapon's first attack becomes its "run" attack after a run.
+## pace: the dodge bar after that attack, without stamina. speed: for the turn order.
 const WEAPONS := {
-	"longsword": {"label": "Longsword & shield", "block": 10, "acts": [
-		{"label": "Light attack", "st": 2, "dmg": 25, "run": "Running attack"},
-		{"label": "Heavy attack", "st": 3, "dmg": 45},
+	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "acts": [
+		{"label": "Light attack", "st": 2, "dmg": 25, "run": "Running attack", "pace": "slow"},
+		{"label": "Heavy attack", "st": 3, "dmg": 45, "pace": "fast"},
 	]},
-	"claymore": {"label": "Claymore", "block": 0, "acts": [
-		{"label": "Light attack", "st": 2, "dmg": 35, "run": "Running attack"},
-		{"label": "Heavy attack", "st": 4, "dmg": 70},
+	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "acts": [
+		{"label": "Light attack", "st": 2, "dmg": 35, "run": "Running attack", "pace": "mid"},
+		{"label": "Heavy attack", "st": 4, "dmg": 70, "pace": "fast"},
 	]},
-	"bow": {"label": "Bow", "block": 0, "range": [1, 2 * ROOM], "arrows": true, "acts": [
-		{"label": "Light attack", "st": 3, "dmg": 40},
+	"bow": {"label": "Bow", "block": 0, "speed": 8, "range": [1, 2 * ROOM], "arrows": true, "acts": [
+		{"label": "Light attack", "st": 3, "dmg": 40, "pace": "mid"},
 	]},
 }
 const ARROWS := 10  ## arrows for the fight (later: from leaving the bonfire)
@@ -70,6 +80,7 @@ const HEAT_CARDS := [
 	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 40, "range": 1, "arcs": ["front"]}]},
 ]
 
+var mode := "stamina"
 var weapon: String  ## the weapon in hand
 var spare: String  ## the other weapon set; empty if there isn't one
 var armour: String
@@ -82,6 +93,10 @@ var attacked := false
 var arrows := 0  ## arrows left; only given when a bow is taken
 var hits := 0  ## hits in a row this turn without moving
 var run := 0  ## hexes moved since the last attack this turn
+var moved := 0  ## hexes moved this turn
+var pace := "slow"  ## the dodge bar after this turn's attack, without stamina
+var hero_wait := 0.0  ## turn order: the one with less wait goes next
+var boss_wait := 0.0
 var boss := Vector2i.ZERO
 var facing := 5
 var boss_hp := BOSS_HP
@@ -96,7 +111,8 @@ var events: Array[Dictionary] = []
 var rng := RandomNumberGenerator.new()
 
 
-func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1, spare_ := "") -> void:
+func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1, spare_ := "", mode_ := "stamina") -> void:
+	mode = mode_
 	weapon = weapon_
 	spare = spare_
 	if WEAPONS[weapon].has("arrows") or (spare != "" and WEAPONS[spare].has("arrows")):
@@ -194,6 +210,9 @@ func steps(c: Vector2i) -> int:
 
 # ---- the hero's turn ----
 
+func uses_stamina() -> bool:
+	return mode == "stamina"
+
 func move_cost(c: Vector2i) -> int:
 	var n := steps(c)
 	if n < 0:
@@ -205,13 +224,15 @@ func can_move(c: Vector2i) -> bool:
 	if phase != "hero" or not open_hex(c):
 		return false
 	var cost := move_cost(c)
-	return cost >= 0 and cost <= stamina
+	return cost >= 0 and cost <= (stamina if uses_stamina() else MOVES - moved)
 
 
 func move(c: Vector2i) -> void:
 	if not can_move(c):
 		return
-	stamina -= move_cost(c)
+	if uses_stamina():
+		stamina -= move_cost(c)
+	moved += steps(c)
 	run += steps(c)
 	hits = 0
 	hero = c
@@ -243,6 +264,8 @@ func attack_label(i: int) -> String:
 func attack_bonus(i: int) -> float:
 	if running(i):
 		return RUN_BONUS
+	if not uses_stamina():
+		return 0.0  # one attack a turn, so no combos
 	return COMBO[hits % COMBO.size()]
 
 
@@ -260,16 +283,19 @@ func reach() -> Array:
 func can_attack(i: int) -> bool:
 	var d := dist(hero, boss)
 	var w: Dictionary = WEAPONS[weapon]
+	var paid: bool = stamina >= w.acts[i].st if uses_stamina() else not attacked
 	return phase == "hero" and d >= reach()[0] and d <= reach()[1] \
-		and stamina >= w.acts[i].st and (arrows > 0 or not w.has("arrows"))
+		and paid and (arrows > 0 or not w.has("arrows"))
 
 
 func attack(i: int) -> void:
 	if not can_attack(i):
 		return
 	var dmg := attack_damage(i)
-	stamina -= WEAPONS[weapon].acts[i].st
+	if uses_stamina():
+		stamina -= WEAPONS[weapon].acts[i].st
 	attacked = true
+	pace = WEAPONS[weapon].acts[i].pace
 	if WEAPONS[weapon].has("arrows"):
 		arrows -= 1
 	hits = 1 if running(i) else hits + 1
@@ -287,7 +313,7 @@ func attack(i: int) -> void:
 
 
 func can_swap() -> bool:
-	return phase == "hero" and spare != "" and stamina >= SWAP_COST
+	return phase == "hero" and spare != "" and (stamina >= SWAP_COST or not uses_stamina())
 
 
 ## Swap to the other weapon set. It breaks the combo but isn't an attack,
@@ -295,7 +321,8 @@ func can_swap() -> bool:
 func swap() -> void:
 	if not can_swap():
 		return
-	stamina -= SWAP_COST
+	if uses_stamina():
+		stamina -= SWAP_COST
 	var w := weapon
 	weapon = spare
 	spare = w
@@ -304,12 +331,15 @@ func swap() -> void:
 
 
 func can_flask() -> bool:
-	return phase == "hero" and flasks > 0 and hp < HERO_HP
+	return phase == "hero" and flasks > 0 and hp < HERO_HP and (uses_stamina() or not attacked)
 
 
+## Without stamina a flask takes the turn's attack.
 func flask() -> void:
 	if not can_flask():
 		return
+	if not uses_stamina():
+		attacked = true
 	flasks -= 1
 	hp = mini(HERO_HP, hp + FLASK_HEAL)
 	events.append({"type": "heal"})
@@ -318,6 +348,48 @@ func flask() -> void:
 func end_turn() -> void:
 	if phase != "hero":
 		return
+	if mode == "order":
+		hero_wait += 100.0 / WEAPONS[weapon].speed
+		_next_turn()
+	else:
+		_boss_turn()
+
+
+## Turn order: whoever has waited least goes; the hero on a tie.
+func _next_turn() -> void:
+	if hero_wait <= boss_wait:
+		_hero_turn()
+	else:
+		_boss_turn()
+
+
+## Who has the next n turns, starting with this one.
+func turn_order(n: int) -> Array[String]:
+	var h := hero_wait
+	var b := boss_wait
+	var out: Array[String] = []
+	while out.size() < n:
+		if h <= b:
+			out.append("hero")
+			h += 100.0 / WEAPONS[weapon].speed
+		else:
+			out.append("boss")
+			b += 100.0 / BOSS_SPEED
+	return out
+
+
+func _hero_turn() -> void:
+	phase = "hero"
+	if uses_stamina():
+		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
+	attacked = false
+	hits = 0
+	run = 0
+	moved = 0
+	pace = "slow"
+
+
+func _boss_turn() -> void:
 	dodges = 0
 	phase = "boss"
 	if deck.is_empty():
@@ -338,11 +410,11 @@ func step() -> void:
 	if phase != "boss":
 		return
 	if queue.is_empty():
-		phase = "hero"
-		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
-		attacked = false
-		hits = 0
-		run = 0
+		if mode == "order":
+			boss_wait += 100.0 / BOSS_SPEED
+			_next_turn()
+		else:
+			_hero_turn()
 		return
 	var s: Dictionary = queue.pop_front()
 	if s.has("move"):
@@ -492,13 +564,14 @@ func block_cost() -> int:
 
 
 func can_block() -> bool:
-	return phase == "defend" and stamina >= block_cost()
+	return phase == "defend" and (stamina >= block_cost() or not uses_stamina())
 
 
 func defend_block() -> void:
 	if not can_block():
 		return
-	stamina -= block_cost()
+	if uses_stamina():
+		stamina -= block_cost()
 	_hurt(block_damage())
 	if incoming.push:
 		_push()
@@ -516,7 +589,7 @@ func take_hit() -> void:
 
 
 func can_dodge() -> bool:
-	return phase == "defend" and stamina >= dodge_cost()
+	return phase == "defend" and (stamina >= dodge_cost() or not uses_stamina())
 
 
 ## What the next dodge this boss turn costs: 1, then 2, then 3...
@@ -537,7 +610,8 @@ func dodge_hexes() -> Array[Vector2i]:
 func defend_dodge(c: Vector2i, ok: bool) -> void:
 	if not can_dodge() or not c in dodge_hexes():
 		return
-	stamina -= dodge_cost()
+	if uses_stamina():
+		stamina -= dodge_cost()
 	dodges += 1
 	hero = c
 	if ok:
@@ -580,10 +654,24 @@ const SWEET_START := 0.72
 const SWEET_WIDTH := {1: 0.11, 2: 0.08, 3: 0.06}
 
 
-## How full the bar is t seconds in: it speeds up the fuller it gets.
+## How the next dodge's bar is paced: by the stamina left after paying for
+## it, or without stamina by this turn's attack.
+func dodge_pace() -> String:
+	if not uses_stamina():
+		return pace
+	var left := stamina - dodge_cost()
+	return "slow" if left >= 5 else ("mid" if left >= 3 else "fast")
+
+
+## How long the next dodge's bar takes, times the attack's own time.
 ## Heavy armour fills it sooner, so there's less time to react.
-static func bar(t: float, diff: int, armour_ := "light") -> float:
-	return pow(t / (BAR_TIME[diff] * ARMOURS[armour_].bar), 2.0)
+func dodge_time() -> float:
+	return ARMOURS[armour].bar * PACE[dodge_pace()]
+
+
+## How full the bar is t seconds in: it speeds up the fuller it gets.
+static func bar(t: float, diff: int, time := 1.0) -> float:
+	return pow(t / (BAR_TIME[diff] * time), 2.0)
 
 
 ## The sweet spot as (start, end) along the bar; the same whatever the armour.

@@ -236,7 +236,13 @@ static func run() -> int:
 	print("the dodge check")
 	var sw := Fight.sweet(2)
 	check(Fight.sweet(3).y - Fight.sweet(3).x < sw.y - sw.x, "harder attacks have a narrower sweet spot")
-	check(Fight.bar(0.5, 2, "heavy") > Fight.bar(0.5, 2, "light"), "heavy armour fills the bar sooner")
+	check(Fight.bar(0.5, 2, Fight.ARMOURS.heavy.bar) > Fight.bar(0.5, 2, Fight.ARMOURS.light.bar), "heavy armour fills the bar sooner")
+	f = _attacked("longsword", "heavy", 3, false)
+	check(f.dodge_pace() == "slow" and f.dodge_time() == Fight.ARMOURS.heavy.bar * Fight.PACE.slow, "a full bar of stamina, a slow dodge bar")
+	f.stamina = 4
+	check(f.dodge_pace() == "mid", "3 or 4 left after the dodge, the middle one")
+	f.stamina = 2
+	check(f.dodge_pace() == "fast", "1 or 2 left, the fast one")
 	var early := Fight.bar(0.2, 1) - Fight.bar(0.1, 1)
 	var late := Fight.bar(1.2, 1) - Fight.bar(1.1, 1)
 	check(late > early, "the bar speeds up as it fills")
@@ -340,6 +346,77 @@ static func run() -> int:
 	f.flask()
 	check(f.hp == 50 + Fight.FLASK_HEAL and f.flasks == Fight.FLASKS - 1, "a flask heals")
 
+	print("one attack a turn")
+	f = Fight.new("longsword", "light", 1, "claymore", "one")
+	f.hero = f.boss + Fight.DIRS[0] * 3
+	f.facing = 0
+	check(not f.can_move(Vector2i(-1, 3)) and f.can_move(f.boss + Fight.DIRS[1] * 3), "up to 3 hexes")
+	f.move(f.boss + Fight.DIRS[0])
+	check(f.stamina == Fight.STAMINA and f.moved == 2, "moving costs no stamina")
+	check(f.running(0), "two hexes still make a running attack")
+	f.attack(0)
+	check(not f.can_attack(0) and not f.can_attack(1), "then no more attacks this turn")
+	check(f.can_move(f.boss + Fight.DIRS[1]) and not f.can_move(f.boss + Fight.DIRS[0] * 3), "but the hex left to move")
+	f.move(f.boss + Fight.DIRS[1])
+	check(not f.can_move(f.boss + Fight.DIRS[2]), "3 hexes and that's it")
+	check(f.dodge_pace() == "slow", "a longsword light attack, a slow dodge bar")
+	f.swap()
+	check(f.weapon == "claymore" and f.stamina == Fight.STAMINA, "swapping is free")
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.phase == "hero" and f.can_attack(0) and f.moved == 0, "a new turn, a new attack and 3 more hexes")
+	f.attack(1)
+	check(f.dodge_pace() == "fast", "after a heavy attack, a fast one")
+	f.end_turn()
+	f.queue = []
+	f.step()
+	f.attack(0)
+	f.end_turn()
+	f.queue = []
+	f.step()
+	f.attack(0)
+	check(f.attack_bonus(0) == 0.0, "no combos")
+	f.hp = 50
+	check(not f.can_flask(), "the flask takes the attack")
+	f = Fight.new("longsword", "light", 1, "", "one")
+	f.hp = 50
+	f.flask()
+	f.hero = f.boss + Fight.DIRS[0]
+	check(not f.can_attack(0), "so drinking means no attack")
+	f = _attacked("longsword", "light", 60, false)
+	f.mode = "one"
+	f.stamina = 0
+	check(f.can_block() and f.can_dodge(), "block and dodge need no stamina")
+	f.defend_block()
+	check(f.stamina == 0 and f.phase == "boss", "and take none")
+
+	print("turn order")
+	f = Fight.new("longsword", "light", 1, "claymore", "order")
+	check(f.turn_order(5) == ["hero", "boss", "hero", "boss", "hero"], "the first turn is the hero's")
+	var order := f.turn_order(20)
+	check(order.count("hero") > order.count("boss"), "a longsword is quicker than the boss")
+	f.swap()
+	order = f.turn_order(20)
+	check(order.count("hero") < order.count("boss"), "a claymore is slower")
+	f.swap()
+	f.hero = _far_hex(f)
+	var seen: Array[String] = []
+	for k in 12:
+		seen.append(f.phase)
+		if f.phase == "hero":
+			f.end_turn()
+		else:
+			_finish_boss_turn(f)
+			f.hero = _far_hex(f)
+	check(seen.slice(0, 5) == ["hero", "boss", "hero", "boss", "hero"] and "hero" in seen, "turns come in that order")
+	var two := false
+	for k in seen.size() - 1:
+		if seen[k] == "hero" and seen[k + 1] == "hero":
+			two = true
+	check(two, "sometimes the hero goes twice in a row")
+	check(f.stamina == Fight.STAMINA, "no stamina used")
+
 	print("whole fights")
 	var ended := 0
 	for s in 20:
@@ -354,6 +431,19 @@ static func run() -> int:
 		if f.phase in ["win", "lose"]:
 			ended += 1
 	check(ended == 20, "20 bot fights all end")
+	ended = 0
+	for s in 20:
+		f = Fight.new(["longsword", "claymore", "bow"][s % 3], "light", s + 10, "", ["one", "order"][s % 2])
+		for k in 3000:
+			if f.phase in ["win", "lose"]:
+				break
+			if f.phase == "boss":
+				f.step()
+			else:
+				bot(f)
+		if f.phase in ["win", "lose"]:
+			ended += 1
+	check(ended == 20, "20 more in the other two modes all end")
 
 	print("art")
 	var img := Art.boss_image(0)

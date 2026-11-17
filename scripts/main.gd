@@ -22,7 +22,8 @@ const SLOTS := ["Weapon 1", "Weapon 2", "Armour"]
 
 const SETTINGS := "user://settings.cfg"
 
-var screen := "title"  ## title, settings, boss, equip, fight
+var screen := "title"  ## title, settings, mode, boss, equip, fight
+var mode := "stamina"
 var portrait := true  ## phone held upright: the room above the panel
 var boss := "knight"
 var picking := -1  ## the equipment slot whose grid is open, or -1
@@ -37,7 +38,7 @@ var flash_hexes: Array[Vector2i] = []
 var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
 var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
-var check := {}  ## the dodge check while it runs: {to, t, diff, sweet, done, ok}
+var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
 var shot_at := 60
 var frames := 0
@@ -76,6 +77,9 @@ func _ready() -> void:
 	var pk := args.find("--pick")
 	if pk >= 0 and pk + 1 < args.size():
 		picking = int(args[pk + 1])
+	var mi := args.find("--mode")
+	if mi >= 0 and mi + 1 < args.size():
+		mode = args[mi + 1]
 	var wi := args.find("--weapons")
 	if wi >= 0 and wi + 1 < args.size():
 		weapons = Array(args[wi + 1].split(","))
@@ -129,7 +133,7 @@ func _po() -> Vector2:
 
 
 func start() -> void:
-	fight = Fight.new(weapons[0], armour, randi(), weapons[1])
+	fight = Fight.new(weapons[0], armour, randi(), weapons[1], mode)
 	popups.clear()
 	check = {}
 	picking_dodge = false
@@ -168,7 +172,7 @@ func _tick(delta: float) -> void:
 			if check.t > 0.35:
 				fight.defend_dodge(check.to, check.ok)
 				check = {}
-		elif Fight.bar(check.t, check.diff, fight.armour) >= 1.0:
+		elif Fight.bar(check.t, check.diff, check.time) >= 1.0:
 			_stop_check()
 	elif fight.phase == "boss":
 		pause += delta
@@ -213,11 +217,11 @@ func _popup(text: String, pos: Vector2, colour: Color) -> void:
 func _start_check(to: Vector2i) -> void:
 	picking_dodge = false
 	var diff: int = fight.incoming.dodge
-	check = {"to": to, "t": 0.0, "diff": diff, "sweet": Fight.sweet(diff), "done": false, "ok": false, "at": 0.0}
+	check = {"to": to, "t": 0.0, "diff": diff, "time": fight.dodge_time(), "sweet": Fight.sweet(diff), "done": false, "ok": false, "at": 0.0}
 
 
 func _stop_check() -> void:
-	var p := minf(1.0, Fight.bar(check.t, check.diff, fight.armour))
+	var p := minf(1.0, Fight.bar(check.t, check.diff, check.time))
 	check.at = p
 	check.ok = p >= check.sweet.x and p <= check.sweet.y
 	check.done = true
@@ -242,6 +246,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 			return
 		"settings":
 			_settings_tap(p)
+			return
+		"mode":
+			_mode_tap(p)
 			return
 		"boss":
 			_boss_tap(p)
@@ -348,7 +355,7 @@ func _title_tap(p: Vector2) -> void:
 				_check_update()
 		return
 	if _play_button().has_point(p):
-		screen = "boss"
+		screen = "mode"
 	elif _settings_button().has_point(p):
 		screen = "settings"
 
@@ -364,9 +371,20 @@ func _settings_tap(p: Vector2) -> void:
 			_apply_screen()
 
 
-func _boss_tap(p: Vector2) -> void:
+func _mode_tap(p: Vector2) -> void:
 	if _back_button().has_point(p):
 		screen = "title"
+		return
+	var keys := Fight.MODES.keys()
+	for i in keys.size():
+		if _mode_button(i).has_point(p):
+			mode = keys[i]
+			screen = "boss"
+
+
+func _boss_tap(p: Vector2) -> void:
+	if _back_button().has_point(p):
+		screen = "mode"
 		return
 	var keys := BOSSES.keys()
 	for i in keys.size():
@@ -472,6 +490,10 @@ func _choice(row: int, i: int) -> Rect2:
 	return Rect2(_view().x / 2 - w - 4 + i * (w + 8), 70 + row * 36, w, 24)
 
 
+func _mode_button(i: int) -> Rect2:
+	return Rect2(_view().x / 2 - 70, 70 + i * 36, 140, 24)
+
+
 func _back_button() -> Rect2:
 	return Rect2(8, 8, 50, 20)
 
@@ -517,6 +539,9 @@ func _draw() -> void:
 			return
 		"settings":
 			_draw_settings()
+			return
+		"mode":
+			_draw_modes()
 			return
 		"boss":
 			_draw_boss_select()
@@ -570,6 +595,13 @@ func _draw_settings() -> void:
 	_text("Screen", Vector2(_view().x / 2, 60), DIM, true)
 	_box(_choice(0, 0), "Landscape", true, not portrait)
 	_box(_choice(0, 1), "Portrait", true, portrait)
+
+
+func _draw_modes() -> void:
+	_box(_back_button(), "Back", true)
+	var keys := Fight.MODES.keys()
+	for i in keys.size():
+		_box(_mode_button(i), Fight.MODES[keys[i]], true, keys[i] == mode)
 
 
 func _draw_boss_select() -> void:
@@ -690,8 +722,15 @@ func _draw_panel() -> void:
 	_text("You", o + Vector2(0, 60), TEXT)
 	_bar(o + Vector2(30, 54), 142, fight.hp, Fight.HERO_HP, Art.HERO)
 	_text(str(fight.hp), o + Vector2(0, 74), Art.HERO)
-	for k in Fight.STAMINA:
-		draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), GOOD if k < fight.stamina else OFF)
+	if fight.uses_stamina():
+		for k in Fight.STAMINA:
+			draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), GOOD if k < fight.stamina else OFF)
+	elif fight.mode == "order":
+		# who goes next, this turn first
+		var order := fight.turn_order(8)
+		for k in order.size():
+			draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), Art.HERO if order[k] == "hero" else Art.STEEL)
+		draw_rect(Rect2(o + Vector2(30, 75), Vector2(7, 1)), TEXT)
 	for k in Fight.FLASKS:
 		draw_rect(Rect2(o + Vector2(30 + k * 10, 80), Vector2(7, 7)), HURT if k < fight.flasks else OFF)
 	if fight.arrows > 0 or Fight.WEAPONS[fight.weapon].has("arrows") or Fight.WEAPONS[fight.spare].has("arrows"):
@@ -705,7 +744,7 @@ func _draw_panel() -> void:
 			_box(r, "", ok)
 			var c := TEXT if ok else DIM
 			_text(fight.attack_label(i), r.position + Vector2(6, 14), c)
-			for k in a.st:
+			for k in (a.st if fight.uses_stamina() else 0):
 				draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), c)
 			_text(str(fight.attack_damage(i)), r.position + Vector2(140, 14), c)
 		_box(_button(2), "Flask", fight.can_flask())
@@ -714,7 +753,7 @@ func _draw_panel() -> void:
 		var sc := TEXT if fight.can_swap() else DIM
 		_box(sr, "", fight.can_swap())
 		_text("Swap: " + Fight.WEAPONS[fight.spare].label, sr.position + Vector2(6, 14), sc)
-		for k in Fight.SWAP_COST:
+		for k in (Fight.SWAP_COST if fight.uses_stamina() else 0):
 			draw_rect(Rect2(sr.position + Vector2(160 + k * 5, 9), Vector2(3, 3)), sc)
 	elif fight.phase == "defend" and check.is_empty():
 		var inc := fight.incoming
@@ -723,7 +762,7 @@ func _draw_panel() -> void:
 		var bcol := TEXT if fight.can_block() else DIM
 		_box(r, "", fight.can_block())
 		_text("Block", r.position + Vector2(6, 14), bcol)
-		for k in fight.block_cost():
+		for k in (fight.block_cost() if fight.uses_stamina() else 0):
 			draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), bcol)
 		_text(str(fight.block_damage()), r.position + Vector2(140, 14), bcol)
 		var th := _button(3)
@@ -731,7 +770,7 @@ func _draw_panel() -> void:
 		_text("Take the hit", th.position + Vector2(6, 14), TEXT)
 		_text(str(inc.dmg), th.position + Vector2(140, 14), TEXT)
 		_box(_button(2), "Dodge", fight.can_dodge(), picking_dodge)
-		var dc := fight.dodge_cost()
+		var dc := fight.dodge_cost() if fight.uses_stamina() else 0
 		var dcol := TEXT if fight.can_dodge() else DIM
 		for k in dc:
 			draw_rect(Rect2(_button(2).position + Vector2(140 + k * 5, 9), Vector2(3, 3)), dcol)
@@ -745,7 +784,7 @@ func _draw_check() -> void:
 	draw_rect(bar, OFF)
 	var s: Vector2 = check.sweet
 	draw_rect(Rect2(bar.position.x + roundf(bar.size.x * s.x), bar.position.y, maxf(1.0, roundf(bar.size.x * (s.y - s.x))), bar.size.y), GOOD.darkened(0.4))
-	var p: float = check.at if check.done else minf(1.0, Fight.bar(check.t, check.diff, fight.armour))
+	var p: float = check.at if check.done else minf(1.0, Fight.bar(check.t, check.diff, check.time))
 	var c := TEXT
 	if check.done:
 		c = GOOD if check.ok else HURT

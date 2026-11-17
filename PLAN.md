@@ -114,6 +114,22 @@ so the same layout can go onto a phone later. Phone: landscape (turns
 with the phone), taps act as clicks, an Android export preset (arm64 APK,
 debug-signed, build/GrimTactics.apk).
 
+## Three modes to try (2026-11-18; my guesses, Martin to change)
+Play opens a mode list (names PLACEHOLDER), then boss and equipment.
+- **Stamina:** the game as it was, but the stamina left after paying for a
+  dodge sets the dodge bar: 5-6 slow, 3-4 middle, 1-2 fast (times 1.2 / 1.0 /
+  0.8, on top of the boss card's difficulty and the armour).
+- **One attack:** no stamina. Move up to 3 hexes and attack once a turn,
+  before or after moving; running attack still after 2 hexes. Block and dodge
+  always there. The flask takes the turn's attack; swapping is free. No combos.
+  The dodge bar is set by this turn's attack: longsword light slow, claymore
+  light and bow middle, any heavy fast, no attack slow.
+- **Turn order:** as One attack, plus speeds (FFX-style list, not FF7 bars):
+  longsword 10, bow 8, claymore 6, boss 8. Whoever has waited least goes next
+  (the hero on a tie), so a quick weapon sometimes gets two turns in a row.
+  A strip of 8 squares under your health shows who goes next. Swapping changes
+  your speed from your next turn. Armour doesn't change speed.
+
 ## Menus (agreed 2026-11-17)
 
 - Title: Play (plus the version and the update button).
