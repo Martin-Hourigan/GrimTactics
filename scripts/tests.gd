@@ -236,11 +236,11 @@ static func run() -> int:
 	f.queue = []
 	f.step()
 	check(f.phase == "hero" and f.stamina == 1 + Fight.STAMINA_BACK, "a new turn gives back only a little")
-	f.stamina = 1
+	f.stamina = 0
 	f.end_turn()
 	f.queue = []
 	f.step()
-	check(f.stamina == 1 + Fight.STAMINA_BACK + Fight.REST_BONUS, "a turn with no attack gives back more")
+	check(f.stamina == Fight.STAMINA_BACK + Fight.REST_BONUS and f.stamina == Fight.STAMINA, "a turn with no attack fills the bar")
 	f.hero = f.boss + Fight.DIRS[0]
 	f.stamina = Fight.STAMINA
 	f.attack(0)

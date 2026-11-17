@@ -113,7 +113,7 @@ debug-signed, build/GrimTactics.apk).
   name).
 - Then equipment: Weapon 1, Weapon 2 and Armour slots with icons. Tapping a
   slot opens a grid of icons to pick from. Then Fight.
-- Settings (from the title): Screen = Landscape or Portrait (2026-11-17).
+- Settings (from the title): Screen = Portrait (the default since 2026-11-17) or Landscape.
   Portrait puts the room on top and the panel under it. Saved on the
   device. On PC, portrait makes the window upright.
 - After a win or a death you go back to the equipment screen (PLACEHOLDER
@@ -135,8 +135,8 @@ decide what you can use. No separate spell bar.
   the middle facing it. The hero goes first.
 - All damage and health were multiplied by 10 on 2026-11-17 so the combo
   percentages show.
-- Hero: health 200, a stamina bar of 10 (starts full, +2 after a turn you attacked, +8
-  after a turn with no attack; changed 2026-11-17), 2
+- Hero: health 200, a stamina bar of 6 (starts full, +2 after a turn you attacked, +6
+  after a turn with no attack, so a full bar; changed 2026-11-17), 2
   flasks healing 100 each (drunk on your turn,
   free). Attacks from next to the boss, as many as stamina pays for. Moving and attacking in
   any order.

@@ -23,7 +23,7 @@ const SLOTS := ["Weapon 1", "Weapon 2", "Armour"]
 const SETTINGS := "user://settings.cfg"
 
 var screen := "title"  ## title, settings, boss, equip, fight
-var portrait := false  ## phone held upright: the room above the panel
+var portrait := true  ## phone held upright: the room above the panel
 var boss := "knight"
 var picking := -1  ## the equipment slot whose grid is open, or -1
 var weapons := ["longsword", "claymore"]  ## the two weapon sets
@@ -80,9 +80,11 @@ func _ready() -> void:
 	font = ThemeDB.fallback_font
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS) == OK:
-		portrait = cfg.get_value("screen", "portrait", false)
+		portrait = cfg.get_value("screen", "portrait", true)
 	if "--portrait" in args:
 		portrait = true
+	if "--landscape" in args:
+		portrait = false
 	_apply_screen()
 	# an update downloaded last time has been installed (or given up on)
 	if FileAccess.file_exists(Update.APK):
