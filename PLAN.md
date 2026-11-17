@@ -147,6 +147,9 @@ Play opens a mode list (names PLACEHOLDER), then boss and equipment.
 - The fight view follows the hero: the hero stays mid-screen and the room
   moves around them (ready for a world map later). The boss's health and its
   card sit along the top of the screen.
+- When the boss attacks, Block / Dodge / Take the hit come up in a pop-up in
+  the middle of the screen (just clear of the hexes round the hero), and the
+  dodge bar comes up in the same place.
 
 ## Gear for step 1 (agreed 2026-11-14, numbers PLACEHOLDER)
 - **Longsword and shield:** one-handed sword, shield adds block.

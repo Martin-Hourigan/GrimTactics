@@ -476,12 +476,12 @@ func _defend_tap(p: Vector2) -> void:
 		if c != null and c in fight.dodge_hexes():
 			_start_check(c)
 			return
-	if _button(1).has_point(p) and fight.can_block():
+	if _defend_button(0).has_point(p) and fight.can_block():
 		picking_dodge = false
 		fight.defend_block()
-	elif _button(2).has_point(p) and fight.can_dodge():
+	elif _defend_button(1).has_point(p) and fight.can_dodge():
 		picking_dodge = true
-	elif _button(3).has_point(p):
+	elif _defend_button(2).has_point(p):
 		picking_dodge = false
 		fight.take_hit()
 
@@ -495,6 +495,19 @@ func _hex_at(p: Vector2) -> Variant:
 
 func _button(i: int) -> Rect2:
 	return Rect2(_po() + Vector2(0, 128 + i * 26), Vector2(172, 22))
+
+
+## The pop-up for defending and the dodge check: mid-screen, clear of the
+## hexes round the hero.
+func _defend_box() -> Rect2:
+	var c := Vector2(135, 228) if portrait else Vector2(305, 200)
+	var size := Vector2(184, 108)
+	return Rect2((c - size / 2).round(), size)
+
+
+## Block, Dodge, Take the hit.
+func _defend_button(i: int) -> Rect2:
+	return Rect2(_defend_box().position + Vector2(6, 26 + i * 26), Vector2(172, 22))
 
 
 func _play_button() -> Rect2:
@@ -583,6 +596,8 @@ func _draw() -> void:
 	_draw_top()
 	if not check.is_empty():
 		_draw_check()
+	elif fight.phase == "defend":
+		_draw_defend()
 	if not arrow.is_empty():
 		var head: Vector2 = arrow.from.lerp(arrow.to, minf(1.0, arrow.t / 0.15))
 		draw_line(head.lerp(arrow.from, 0.3), head, TEXT)
@@ -764,22 +779,24 @@ func _draw_panel() -> void:
 		draw_rect(Rect2(0, o.y - 6, _view().x, _view().y - o.y + 6), Art.BG)
 	else:
 		draw_rect(Rect2(o.x - 6, 0, _view().x - o.x + 6, _view().y), Art.BG)
-	_text("You", o + Vector2(0, 60), TEXT)
-	_bar(o + Vector2(30, 54), 142, fight.hp, Fight.HERO_HP, Art.HERO)
-	_text(str(fight.hp), o + Vector2(0, 74), Art.HERO)
+	# in portrait the hero's rows sit under the defend pop-up
+	var y := 36.0 if portrait else 0.0
+	_text("You", o + Vector2(0, 60 + y), TEXT)
+	_bar(o + Vector2(30, 54 + y), 142, fight.hp, Fight.HERO_HP, Art.HERO)
+	_text(str(fight.hp), o + Vector2(0, 74 + y), Art.HERO)
 	if fight.uses_stamina():
 		for k in Fight.STAMINA:
-			draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), GOOD if k < fight.stamina else OFF)
+			draw_rect(Rect2(o + Vector2(30 + k * 10, 66 + y), Vector2(7, 7)), GOOD if k < fight.stamina else OFF)
 	elif fight.mode == "order":
 		# who goes next, this turn first
 		var order := fight.turn_order(8)
 		for k in order.size():
-			draw_rect(Rect2(o + Vector2(30 + k * 10, 66), Vector2(7, 7)), Art.HERO if order[k] == "hero" else Art.STEEL)
-		draw_rect(Rect2(o + Vector2(30, 75), Vector2(7, 1)), TEXT)
+			draw_rect(Rect2(o + Vector2(30 + k * 10, 66 + y), Vector2(7, 7)), Art.HERO if order[k] == "hero" else Art.STEEL)
+		draw_rect(Rect2(o + Vector2(30, 75 + y), Vector2(7, 1)), TEXT)
 	for k in Fight.FLASKS:
-		draw_rect(Rect2(o + Vector2(30 + k * 10, 80), Vector2(7, 7)), HURT if k < fight.flasks else OFF)
+		draw_rect(Rect2(o + Vector2(30 + k * 10, 80 + y), Vector2(7, 7)), HURT if k < fight.flasks else OFF)
 	if fight.arrows > 0 or Fight.WEAPONS[fight.weapon].has("arrows") or Fight.WEAPONS[fight.spare].has("arrows"):
-		_text("arrows %d" % fight.arrows, o + Vector2(120, 87), TEXT if fight.arrows > 0 else DIM)
+		_text("arrows %d" % fight.arrows, o + Vector2(120, 87 + y), TEXT if fight.arrows > 0 else DIM)
 	if fight.phase == "hero":
 		var acts: Array = Fight.WEAPONS[fight.weapon].acts
 		for i in acts.size():
@@ -800,32 +817,37 @@ func _draw_panel() -> void:
 		_text("Swap: " + Fight.WEAPONS[fight.spare].label, sr.position + Vector2(6, 14), sc)
 		for k in (Fight.SWAP_COST if fight.uses_stamina() else 0):
 			draw_rect(Rect2(sr.position + Vector2(160 + k * 5, 9), Vector2(3, 3)), sc)
-	elif fight.phase == "defend" and check.is_empty():
-		var inc := fight.incoming
-		_text("%s  %d" % [inc.name, inc.dmg], o + Vector2(0, 118), HURT)
-		var r := _button(1)
-		var bcol := TEXT if fight.can_block() else DIM
-		_box(r, "", fight.can_block())
-		_text("Block", r.position + Vector2(6, 14), bcol)
-		for k in (fight.block_cost() if fight.uses_stamina() else 0):
-			draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), bcol)
-		_text(str(fight.block_damage()), r.position + Vector2(140, 14), bcol)
-		var th := _button(3)
-		_box(th, "", true)
-		_text("Take the hit", th.position + Vector2(6, 14), TEXT)
-		_text(str(inc.dmg), th.position + Vector2(140, 14), TEXT)
-		_box(_button(2), "Dodge", fight.can_dodge(), picking_dodge)
-		var dc := fight.dodge_cost() if fight.uses_stamina() else 0
-		var dcol := TEXT if fight.can_dodge() else DIM
-		for k in dc:
-			draw_rect(Rect2(_button(2).position + Vector2(140 + k * 5, 9), Vector2(3, 3)), dcol)
+
+
+func _draw_defend() -> void:
+	var box := _defend_box()
+	draw_rect(box, PANEL)
+	draw_rect(box, TEXT, false, 1.0)
+	var inc := fight.incoming
+	_text("%s  %d" % [inc.name, inc.dmg], box.position + Vector2(8, 16), HURT)
+	var r := _defend_button(0)
+	var bcol := TEXT if fight.can_block() else DIM
+	_box(r, "", fight.can_block())
+	_text("Block", r.position + Vector2(6, 14), bcol)
+	for k in (fight.block_cost() if fight.uses_stamina() else 0):
+		draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), bcol)
+	_text(str(fight.block_damage()), r.position + Vector2(140, 14), bcol)
+	var dr := _defend_button(1)
+	_box(dr, "Dodge", fight.can_dodge(), picking_dodge)
+	var dcol := TEXT if fight.can_dodge() else DIM
+	for k in (fight.dodge_cost() if fight.uses_stamina() else 0):
+		draw_rect(Rect2(dr.position + Vector2(140 + k * 5, 9), Vector2(3, 3)), dcol)
+	var th := _defend_button(2)
+	_box(th, "", true)
+	_text("Take the hit", th.position + Vector2(6, 14), TEXT)
+	_text(str(inc.dmg), th.position + Vector2(140, 14), TEXT)
 
 
 func _draw_check() -> void:
-	var r := Rect2(_po() + Vector2(-2, 232), Vector2(176, 30))
+	var r := Rect2((_defend_box().get_center() - Vector2(92, 15)).round(), Vector2(184, 30))
 	draw_rect(r, PANEL)
 	draw_rect(r, TEXT, false, 1.0)
-	var bar := Rect2(_po() + Vector2(6, 242), Vector2(160, 10))
+	var bar := Rect2(r.position + Vector2(12, 10), Vector2(160, 10))
 	draw_rect(bar, OFF)
 	var s: Vector2 = check.sweet
 	draw_rect(Rect2(bar.position.x + roundf(bar.size.x * s.x), bar.position.y, maxf(1.0, roundf(bar.size.x * (s.y - s.x))), bar.size.y), GOOD.darkened(0.4))
