@@ -481,6 +481,19 @@ static func run() -> int:
 	check(f.boss_hp == hp3 - (Fight.SKILLS.sweep.dmg - Fight.BOSS_BLOCK) and f.attacked, "it hits, and it's the turn's attack")
 	check(f.waiting("sweep"), "then it sits out a turn")
 
+	print("aiming the bow")
+	check(Fight.line(Vector2i(0, 0), Vector2i(3, 0)) == [Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)], "a straight line of hexes")
+	check(Fight.line(Vector2i(0, 0), Vector2i(2, -1)).size() == 2 and Fight.line(Vector2i(0, 0), Vector2i(2, -1)).back() == Vector2i(2, -1), "a slanted line ends on its target")
+	f = Fight.new("bow", "light", 1, "", "one")
+	f.hero = f.boss + Fight.DIRS[0] * 3
+	check(f.can_aim(f.boss) and not f.can_aim(f.boss + Fight.DIRS[1]), "aimed at an enemy, not an empty hex")
+	check(f.shot_path(f.boss).back() == f.boss and f.shot_path(f.boss).size() == 3, "the arrow flies until it enters the enemy's hex")
+	check(f.shot_path(f.boss + Fight.DIRS[3] * 2).back() == f.boss, "aimed past it, it stops at the first enemy")
+	hp3 = f.boss_hp
+	f.shoot(0, f.boss)
+	check(f.boss_hp < hp3 and f.arrows == Fight.ARROWS - 1, "the shot lands")
+	check(not Fight.new("longsword", "light", 1).can_aim(Vector2i.ZERO), "melee weapons aren't aimed")
+
 	print("bow aimed shot")
 	f = Fight.new("bow", "light", 1, "", "one")
 	f.facing = 0

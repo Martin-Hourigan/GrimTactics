@@ -166,6 +166,34 @@ static func dist(a: Vector2i, b: Vector2i) -> int:
 	return (absi(d.x) + absi(d.y) + absi(d.x + d.y)) / 2
 
 
+## The hexes a straight line from a to b goes through, a left out.
+static func line(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var n := dist(a, b)
+	# nudged off the hex edges so a line along one picks a side the same way each time
+	var fa := Vector2(a) + Vector2(1e-4, 2e-4)
+	var fb := Vector2(b) + Vector2(1e-4, 2e-4)
+	for k in range(1, n + 1):
+		var p := fa.lerp(fb, float(k) / n)
+		out.append(_round_hex(p.x, p.y))
+	return out
+
+
+static func _round_hex(q: float, r: float) -> Vector2i:
+	var s := -q - r
+	var rq := roundf(q)
+	var rr := roundf(r)
+	var rs := roundf(s)
+	var dq := absf(rq - q)
+	var dr := absf(rr - r)
+	var ds := absf(rs - s)
+	if dq > dr and dq > ds:
+		rq = -rr - rs
+	elif dr > ds:
+		rr = -rq - rs
+	return Vector2i(int(rq), int(rr))
+
+
 static func in_room(c: Vector2i) -> bool:
 	return dist(c, Vector2i.ZERO) <= ROOM
 
@@ -405,8 +433,10 @@ func sweep(i: int) -> void:
 	_hit(skill_damage("sweep"))
 
 
-func aimed_shot() -> void:
-	if not can_skill("aimed"):
+func aimed_shot(target := Vector2i(-99, -99)) -> void:
+	if target == Vector2i(-99, -99):
+		target = boss
+	if not can_skill("aimed") or not can_aim(target) or not enemy_at(shot_path(target).back()):
 		return
 	_use_skill("aimed")
 	pace = "mid"
@@ -456,6 +486,41 @@ func _hit(dmg: int, k := 0) -> void:
 		deck.append(HEAT_CARDS[rng.randi_range(0, HEAT_CARDS.size() - 1)])
 		_shuffle(deck)
 		events.append({"type": "heat_up"})
+
+
+# ---- shooting ----
+
+func ranged() -> bool:
+	return WEAPONS[weapon].has("range")
+
+
+## Whether there is an enemy on hex c (only the boss so far).
+func enemy_at(c: Vector2i) -> bool:
+	return c == boss
+
+
+## The hexes an arrow aimed at target flies over, up to and with the first
+## enemy it enters.
+func shot_path(target: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for c in line(hero, target):
+		out.append(c)
+		if enemy_at(c):
+			break
+	return out
+
+
+## Whether the bow can be aimed at hex c: an enemy within its reach.
+func can_aim(c: Vector2i) -> bool:
+	var d := dist(hero, c)
+	return ranged() and enemy_at(c) and d >= reach()[0] and d <= reach()[1]
+
+
+## Shoot attack i at target; it hits the first enemy on the way.
+func shoot(i: int, target: Vector2i) -> void:
+	if not can_aim(target) or not enemy_at(shot_path(target).back()):
+		return
+	attack(i)  # the boss is the only enemy, so it's the one hit
 
 
 func can_swap() -> bool:

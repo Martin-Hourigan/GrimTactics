@@ -145,6 +145,9 @@ Like Stoneshard: each piece of gear brings its own moves.
     one you tap. 35 damage (PLACEHOLDER; it'll matter more with groups).
   - Bow: Aimed shot (2026-11-18): a harder shot (50, PLACEHOLDER) that goes
     through the boss's block; uses an arrow.
+- Bow shots are aimed (2026-11-18): pick the attack, then tap an enemy in
+  range (outlined). The arrow flies in a straight hex line and hits the first
+  enemy hex it enters (only the boss so far). Same for the Aimed shot.
   - Every skill sits out 1 turn after use, so every other turn (2026-11-18).
     Stamina mode costs: combo 5, sweep 3, aimed shot 4 (PLACEHOLDER).
 - Shield: a better block (maybe its own slot; not with two-handed weapons).

@@ -41,7 +41,7 @@ var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
 var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
 var menu := ""  ## the hero's menu: "" (top), attack, skills, items
-var aiming := ""  ## picking a hex for: run (the running attack), sweep
+var aiming := ""  ## picking a hex for: run (the running attack), sweep, shot0/shot1 (bow attacks), aimed
 var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
 var shot_at := 60
@@ -94,7 +94,7 @@ func _ready() -> void:
 	if shot_menu != "":
 		menu = shot_menu.get_slice("-", 0)
 		aiming = shot_menu.get_slice("-", 1) if "-" in shot_menu else ""
-		fight.hero = fight.boss + Fight.DIRS[5] * (3 if aiming == "run" else 1)
+		fight.hero = fight.boss + Fight.DIRS[5] * (1 if aiming in ["", "sweep"] else 3)
 		cam = _cam_target()
 	font = ThemeDB.fallback_font
 	var cfg := ConfigFile.new()
@@ -475,6 +475,12 @@ func _hero_tap(p: Vector2) -> void:
 		if was == "sweep" and c != null and _sweep_dir(c) in fight.sweep_aims():
 			fight.sweep(_sweep_dir(c))
 			return
+		if was.begins_with("shot") and c != null and fight.can_aim(c):
+			fight.shoot(int(was.substr(4)), c)
+			return
+		if was == "aimed" and c != null and fight.can_aim(c):
+			fight.aimed_shot(c)
+			return
 	var back := menu != "" and _button(4).has_point(p)
 	match menu:
 		"":
@@ -491,7 +497,11 @@ func _hero_tap(p: Vector2) -> void:
 		"attack":
 			for i in Fight.WEAPONS[fight.weapon].acts.size():
 				if _button(i).has_point(p):
-					fight.attack(i)
+					if fight.ranged():
+						if fight.can_attack(i):
+							aiming = "shot%d" % i
+					else:
+						fight.attack(i)
 			if _button(2).has_point(p) and fight.can_run_attack():
 				aiming = "run"
 		"skills":
@@ -504,7 +514,7 @@ func _hero_tap(p: Vector2) -> void:
 						"sweep":
 							aiming = "sweep"
 						"aimed":
-							fight.aimed_shot()
+							aiming = "aimed"
 		"items":
 			if _button(0).has_point(p):
 				fight.flask()
@@ -775,6 +785,8 @@ func _draw_room() -> void:
 			col = HEX_REACH if c in fight.run_hexes() else HEX
 		elif aiming == "sweep":
 			col = HEX_REACH if _sweep_dir(c) in fight.sweep_aims() else HEX
+		elif aiming.begins_with("shot") or aiming == "aimed":
+			col = HEX_REACH if fight.can_aim(fight.boss) and c in fight.shot_path(fight.boss) else HEX
 		elif fight.phase == "hero" and fight.can_move(c):
 			col = HEX_REACH
 		if c != fight.boss and fight.phase == "hero" and fight.weak_at(c) and not c in hitting:
@@ -795,6 +807,11 @@ func _draw_room() -> void:
 	_draw_arc_lines()
 	var bp := hex_pos(fight.boss)
 	draw_texture(Art.boss(fight.facing), bp - Vector2(Art.R, Art.R))
+	# the enemies a bow shot can be aimed at
+	if (aiming.begins_with("shot") or aiming == "aimed") and fight.can_aim(fight.boss):
+		var edge := _hex_poly(bp, HR - 1.0)
+		edge.append(edge[0])
+		draw_polyline(edge, TEXT if fmod(t, 0.6) < 0.4 else DIM, 1.0)
 	draw_texture(Art.hero(_hero_facing(), fight.weapon), hex_pos(fight.hero) - Vector2(Art.HR, Art.HR))
 
 
@@ -877,7 +894,7 @@ func _draw_menu() -> void:
 		"attack":
 			var acts: Array = Fight.WEAPONS[fight.weapon].acts
 			for i in acts.size():
-				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)))
+				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)), false, aiming == "shot%d" % i)
 			if fight.has_run():
 				_entry(2, "Running attack", fight.can_run_attack(), acts[0].st if st else 0, "", false, aiming == "run")
 		"skills":
