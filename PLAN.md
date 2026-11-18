@@ -36,8 +36,8 @@ my guess, for Martin to change. Run it with play.bat.
   costs 1 stamina on your turn and doesn't count as attacking, so it
   doesn't cut your stamina back. Swapping breaks the combo (PLACEHOLDER
   choice); a run before it still counts.
-- **Running attack** (agreed 2026-11-17): after moving 2 hexes, the
-  standard attack becomes a running attack with +20%. It counts as the 1st
+- **Running attack** (agreed 2026-11-17, changed 2026-11-18): a skill of its
+  own: run at least 2 hexes to the boss, then hit with +20%. It counts as the 1st
   hit of a combo, so the next hit is +10% again.
 - **Dodging is a timing check, one per attack.** A small window pops up
   with a bar that fills, speeding up as it nears the sweet spot. Tap in the
