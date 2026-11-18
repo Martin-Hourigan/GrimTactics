@@ -61,6 +61,72 @@ static func foe_image(_kind: String, held: String, f: int) -> Image:
 	return _sample(f, HR, HERO_SCALE, shape)
 
 
+const COURSE := 5  ## a course of bricks: 4 rows of stone and 1 of mortar (PLACEHOLDER)
+const BRICK := 10  ## a brick's length, mortar included (PLACEHOLDER)
+const FRAME := 2 * COURSE + 1  ## the room's border thickness: two courses, mortar both sides
+const STONES: Array[Color] = [Color("4f4a45"), Color("5c5650"), Color("68625b")]  ## brick shades (PLACEHOLDER)
+const MORTAR := Color("1c1a19")
+
+
+## A stone brick border, size outside, FRAME thick, empty inside.
+static func frame(size: Vector2i) -> ImageTexture:
+	var key := "frame %d %d" % [size.x, size.y]
+	if not _cache.has(key):
+		_cache[key] = ImageTexture.create_from_image(frame_image(size))
+	return _cache[key]
+
+
+static func frame_image(size: Vector2i) -> Image:
+	var w := size.x
+	var h := size.y
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		for x in w:
+			var left := x < FRAME
+			var top := y < FRAME
+			var side := left or x >= w - FRAME
+			var end := top or y >= h - FRAME
+			if not side and not end:
+				continue
+			var cx := x if left else x - (w - FRAME)  # across a side band, from its left edge
+			var cy := y if top else y - (h - FRAME)
+			var c := MORTAR
+			if side and end:
+				# a corner stone
+				if cx > 0 and cx < FRAME - 1 and cy > 0 and cy < FRAME - 1:
+					c = _brick(x, y, cx == 1 or cy == 1, cx == FRAME - 2 or cy == FRAME - 2, int(left) + 2 * int(top), 0, 9)
+			elif end:
+				# along the top or bottom, every other course offset by half a brick
+				var course := cy / COURSE
+				var u := x - FRAME + course * BRICK / 2
+				var along := posmod(u, BRICK)
+				var row := cy % COURSE
+				if row != 0 and along != BRICK - 1:
+					c = _brick(x, y, row == 1 or along == 0, row == COURSE - 1 or along == BRICK - 2, floori(float(u) / BRICK), course, int(top))
+			else:
+				var course := cx / COURSE
+				var u := y - FRAME + course * BRICK / 2
+				var along := posmod(u, BRICK)
+				var row := cx % COURSE
+				if row != 0 and along != BRICK - 1:
+					c = _brick(x, y, row == 1 or along == 0, row == COURSE - 1 or along == BRICK - 2, floori(float(u) / BRICK), course, 2 + int(left))
+			img.set_pixel(x, y, c)
+	return img
+
+
+## One brick's pixel at x, y: lit on its top and left, shaded on its bottom and
+## right, the odd pit in between. a, b, c pick the brick's shade.
+static func _brick(x: int, y: int, lit: bool, shade: bool, a: int, b: int, c: int) -> Color:
+	var base := STONES[absi(a * 73856093 ^ b * 19349663 ^ c * 83492791) % STONES.size()]
+	if shade:
+		return base.darkened(0.3)
+	if lit:
+		return base.lightened(0.15)
+	if absi(x * 2654435761 ^ y * 40503) % 13 == 0:
+		return base.darkened(0.18)
+	return base
+
+
 const BONFIRE := 12  ## bonfire image half size
 
 

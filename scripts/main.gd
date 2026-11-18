@@ -174,9 +174,14 @@ func _cam_target() -> Vector2:
 
 ## The part of the screen the room shows in, inside its border.
 func _field() -> Rect2:
+	return _frame_rect().grow(-Art.FRAME)
+
+
+## The room's border, outside edge.
+func _frame_rect() -> Rect2:
 	if portrait:
-		return Rect2(4, 32, _view().x - 8, _po().y + 72 - 32)
-	return Rect2(4, 32, _po().x - 10, _view().y - 36)
+		return Rect2(0, 32, _view().x, _po().y + 76 - 32)
+	return Rect2(0, 32, _po().x - 6, _view().y - 32)
 
 
 ## Drags the view by d, as far as putting the hero at the field's far edge.
@@ -1000,17 +1005,10 @@ func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
 
 
 ## The boss's health along the top of the screen, and the cog.
-## The border round the room: what's outside it is covered.
+## The stone border round the room.
 func _draw_frame() -> void:
-	var f := _field()
-	draw_rect(Rect2(0, f.position.y, f.position.x, f.size.y), Art.BG)
-	var right := _view().x if portrait else _po().x - 6
-	draw_rect(Rect2(f.end.x, f.position.y, right - f.end.x, f.size.y), Art.BG)
-	if portrait:
-		draw_rect(Rect2(0, f.end.y, _view().x, _po().y + 76 - f.end.y), Art.BG)
-	else:
-		draw_rect(Rect2(0, f.end.y, f.end.x + 6, _view().y - f.end.y), Art.BG)
-	draw_rect(f.grow(-0.5), DIM, false, 1.0)
+	var f := _frame_rect()
+	draw_texture(Art.frame(Vector2i(f.size)), f.position)
 
 
 func _draw_top() -> void:
