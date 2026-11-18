@@ -20,11 +20,12 @@ const HERO_SCALE := 2.0  ## hero size (PLACEHOLDER)
 const HR := 22  ## hero image half size
 
 static var _cache := {}
+static var faces := 6  ## 6 on hexes; 4 on squares (right, up, left, down)
 
 
 ## The boss facing hex direction f (0 right, counter-clockwise).
 static func boss(f: int) -> ImageTexture:
-	var key := "boss %d" % f
+	var key := "boss %d %d" % [f, faces]
 	if not _cache.has(key):
 		_cache[key] = ImageTexture.create_from_image(boss_image(f))
 	return _cache[key]
@@ -36,7 +37,7 @@ static func boss_image(f: int) -> Image:
 
 ## The hero facing hex direction f, holding weapon ("longsword" or "claymore").
 static func hero(f: int, weapon: String) -> ImageTexture:
-	var key := "hero %d %s" % [f, weapon]
+	var key := "hero %d %s %d" % [f, weapon, faces]
 	if not _cache.has(key):
 		_cache[key] = ImageTexture.create_from_image(hero_image(f, weapon))
 	return _cache[key]
@@ -49,7 +50,7 @@ static func hero_image(f: int, weapon: String) -> Image:
 
 ## A small enemy of kind (swordsman, crossbowman) holding held, facing f.
 static func foe(kind: String, held: String, f: int) -> ImageTexture:
-	var key := "foe %s %s %d" % [kind, held, f]
+	var key := "foe %s %s %d %d" % [kind, held, f, faces]
 	if not _cache.has(key):
 		_cache[key] = ImageTexture.create_from_image(foe_image(kind, held, f))
 	return _cache[key]
@@ -184,6 +185,10 @@ static func _sample(f: int, r: int, scale: float, shape: Callable) -> Image:
 	var hflip := f in [2, 3, 4]
 	var vflip := f in [4, 5]
 	var base := 0 if f in [0, 3] else 60
+	if faces == 4:  # right and up drawn, left and down flipped from them
+		hflip = f == 2
+		vflip = f == 3
+		base = 0 if f in [0, 2] else 90
 	# a single flip swaps left and right hands; draw it mirrored first
 	var mirror := hflip != vflip
 	var img := Image.create_empty(2 * r, 2 * r, false, Image.FORMAT_RGBA8)

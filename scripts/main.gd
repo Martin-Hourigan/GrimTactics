@@ -114,7 +114,7 @@ func _ready() -> void:
 		menu = shot_menu.get_slice("-", 0)
 		aiming = shot_menu.get_slice("-", 1) if "-" in shot_menu else ""
 		if at < 0:
-			fight.hero = fight.boss + Fight.DIRS[5] * (1 if aiming in ["", "sweep", "hit0", "hit1", "combo"] else 3)
+			fight.hero = fight.boss + Fight.FACES.back() * (1 if aiming in ["", "sweep", "hit0", "hit1", "combo"] else 3)
 		cam = _cam_target()
 	font = ThemeDB.fallback_font
 	var cfg := ConfigFile.new()
@@ -176,7 +176,7 @@ func start() -> void:
 			if not fight.ground.has(c + d) and not c + d in walls:
 				walls.append(c + d)
 	walking.clear()
-	hero_face = 2
+	hero_face = 1 if Fight.SQUARE else 2  # up
 	popups.clear()
 	check = {}
 	picking_dodge = false
@@ -619,7 +619,8 @@ func _defend_tap(p: Vector2) -> void:
 
 func _hex_at(p: Vector2) -> Variant:
 	for c in fight.ground:
-		if p.distance_to(hex_pos(c)) < HR * 0.9:
+		var d := p - hex_pos(c)
+		if (maxf(absf(d.x), absf(d.y)) < HR * Fight.SQ_SIZE / 2.0) if Fight.SQUARE else d.length() < HR * 0.9:
 			return c
 	return null
 
@@ -830,6 +831,11 @@ func _icon(key: String, c: Vector2) -> void:
 
 func _hex_poly(c: Vector2, r: float) -> PackedVector2Array:
 	var pts := PackedVector2Array()
+	if Fight.SQUARE:
+		var h := roundf(r * Fight.SQ_SIZE / 2.0)
+		for v in [Vector2(h, h), Vector2(-h, h), Vector2(-h, -h), Vector2(h, -h)]:
+			pts.append((c + v).round())
+		return pts
 	for k in 6:
 		var a := deg_to_rad(60.0 * k + 30.0)
 		pts.append((c + r * Vector2(cos(a), sin(a))).round())
@@ -924,8 +930,9 @@ func _hero_facing() -> int:
 ## The lines between the boss's four arcs.
 func _draw_arc_lines() -> void:
 	var o := hex_pos(fight.boss)
-	for rel in [30.0, -30.0, 150.0, -150.0]:
-		var a := deg_to_rad(60.0 * fight.facing + rel)
+	var step := 360.0 / Fight.FACES.size()
+	for rel in [step / 2, -step / 2, 180.0 - step / 2, step / 2 - 180.0]:
+		var a := deg_to_rad(step * fight.facing + rel)
 		var d := Vector2(cos(a), -sin(a))
 		draw_line(o + d * HR * 0.8, o + d * HR * 2.2, ARC_LINE, 1.0)
 

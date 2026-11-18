@@ -661,6 +661,50 @@ static func run() -> int:
 			ended += 1
 	check(ended == 20, "20 more in the other two modes all end")
 
+	print("square grid")
+	f = Fight.new("longsword", "light", 1, "", "square")
+	check(Fight.SQUARE and Fight.room().size() == 49 and Fight.DIRS.size() == 8, "a 7 by 7 room, 8 ways to step")
+	check(Fight.dist(Vector2i.ZERO, Vector2i(2, 1)) == 2 and Fight.dist(Vector2i.ZERO, Vector2i(3, -3)) == 3, "a diagonal step counts 1")
+	check(not f.uses_stamina() and f.can_move(Vector2i(3, 0)) and not f.can_move(Vector2i(-3, -1)), "move 3, diagonals too")
+	f.facing = 0
+	check(f.arcs_of(Vector2i(1, 0)) == ["front"] and f.arcs_of(Vector2i(0, -1)) == ["left"] and f.arcs_of(Vector2i(-1, 0)) == ["back"], "front, left and back")
+	check(f.arcs_of(Vector2i(1, -1)).size() == 2 and "front" in f.arcs_of(Vector2i(1, -1)), "a front corner is front and side")
+	f.hero = Vector2i(1, 1)
+	check(f.can_attack(0) and f.targets() == [f.boss], "hits from a diagonal")
+	check(Fight.line(Vector2i.ZERO, Vector2i(3, 0)) == [Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)] and Fight.line(Vector2i.ZERO, Vector2i(2, 2)) == [Vector2i(1, 1), Vector2i(2, 2)], "straight and diagonal lines")
+	f.phase = "boss"
+	f.card = {"name": "test", "dodge": 1, "weak": []}
+	f.queue = [{"turn": 3}]
+	f.step()
+	check(f.facing == 2, "a card's turn round is a half turn")
+	f = Fight.new("claymore", "light", 1, "", "square")
+	f.hero = Vector2i(0, 1)
+	check(f.sweep_aims().size() == 3, "a sweep catches the boss from 3 aims")
+	f = Fight.new("longsword", "light", 1, "", "square", "keep")
+	var straight := true
+	for c in f.path(Fight.KEEP_BONFIRE_DOOR, Vector2i(0, 11)):
+		straight = straight and c.x == 0
+	check(straight, "the hallway is a straight walk")
+	for c in f.path(f.hero, Fight.KEEP_DOOR):
+		f.walk(c)
+		if f.phase != "explore":
+			break
+	check(f.phase == "hero" and f.foes[0].awake and Fight.dist(f.hero, f.foes[0].at) == Fight.WAKE, "the keep: the swordsman wakes at 5 squares")
+	ended = 0
+	for s in 10:
+		f = Fight.new(["longsword", "claymore", "bow"][s % 3], "light", s + 10, "", "square")
+		for k in 3000:
+			if f.phase in ["win", "lose"]:
+				break
+			if f.phase == "boss":
+				f.step()
+			else:
+				bot(f)
+		if f.phase in ["win", "lose"]:
+			ended += 1
+	check(ended == 10, "10 bot fights on squares all end")
+	Fight.set_grid(false)
+
 	print("art")
 	var img := Art.boss_image(0)
 	check(img.get_width() == 2 * Art.R, "boss image drawn")

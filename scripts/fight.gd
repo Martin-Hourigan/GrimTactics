@@ -8,14 +8,24 @@ const ROOM := 3  ## room radius in hexes (PLACEHOLDER)
 ## The ways to play, picked after Play (PLACEHOLDER names):
 ##   stamina: the stamina bar pays for moving, attacks, blocks and dodges;
 ##   one: no stamina, move up to MOVES hexes and attack once a turn;
-##   order: as one, but who goes next is set by speed.
-const MODES := {"stamina": "Stamina", "one": "One attack", "order": "Turn order"}
+##   order: as one, but who goes next is set by speed;
+##   square: as one, on a square grid (8 ways to step, a diagonal costs 1).
+const MODES := {"stamina": "Stamina", "one": "One attack", "order": "Turn order", "square": "Square grid"}
 const MOVES := 3  ## hexes a turn without stamina
 ## How long the dodge bar takes to fill, times this (PLACEHOLDER).
 const PACE := {"slow": 1.2, "mid": 1.0, "fast": 0.8}
 const BOSS_SPEED := 8  ## turn order speed (PLACEHOLDER)
-## Axial directions, counter-clockwise from the right. Facing f points along DIRS[f].
-const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)]
+## Hexes: axial directions, counter-clockwise from the right.
+const HEX_DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1)]
+## Squares: (x, y down) directions, counter-clockwise from the right; facing only the 4 straight ones.
+const SQ_DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1), Vector2i(-1, -1), Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1), Vector2i(1, 1)]
+const SQ_FACES: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0), Vector2i(0, 1)]
+const SQ_SIZE := 28.0 / 18.0  ## a square's width, in hex radii
+## The grid in use, set by the newest Fight (one at a time). DIRS: the
+## neighbours of a cell; FACES: the ways things face, facing f along FACES[f].
+static var SQUARE := false
+static var DIRS: Array[Vector2i] = HEX_DIRS
+static var FACES: Array[Vector2i] = HEX_DIRS
 const NONE := Vector2i(-99, -99)  ## no hex
 ## Places to play:
 ##   arena: the boss alone in a round room, fighting from the start;
@@ -170,6 +180,8 @@ var _dist_map := {}
 
 func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1, spare_ := "", mode_ := "stamina", level_ := "arena") -> void:
 	mode = mode_
+	set_grid(mode == "square")
+	facing = FACES.size() - 1  # towards the hero's start
 	weapon = weapon_
 	spare = spare_
 	if _has_bow():
@@ -205,7 +217,7 @@ func _build_keep() -> void:
 		ground[c] = true
 	bonfire = KEEP_BONFIRE
 	hero = KEEP_START
-	facing = 5  # towards the door
+	facing = FACES.size() - 1  # towards the door
 	for k in KEEP_FOES:
 		foes.append({"kind": k[0], "at": k[1], "start": k[1]})
 	_reset_foes()
@@ -217,7 +229,7 @@ func _reset_foes() -> void:
 		f.at = f.start
 		f.hp = FOES[f.kind].hp
 		f.held = FOES[f.kind].held
-		f.facing = 5
+		f.facing = FACES.size() - 1
 		f.awake = false
 
 
@@ -234,6 +246,14 @@ func _shuffle(a: Array) -> void:
 static var _room: Array[Vector2i] = []
 
 
+static func set_grid(square: bool) -> void:
+	SQUARE = square
+	DIRS = SQ_DIRS if square else HEX_DIRS
+	FACES = SQ_FACES if square else HEX_DIRS
+	Art.faces = FACES.size()
+	_room.clear()
+
+
 static func room() -> Array[Vector2i]:
 	if _room.is_empty():
 		for q in range(-ROOM, ROOM + 1):
@@ -245,6 +265,8 @@ static func room() -> Array[Vector2i]:
 
 static func dist(a: Vector2i, b: Vector2i) -> int:
 	var d := a - b
+	if SQUARE:
+		return maxi(absi(d.x), absi(d.y))
 	return (absi(d.x) + absi(d.y) + absi(d.x + d.y)) / 2
 
 
@@ -257,7 +279,7 @@ static func line(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
 	var fb := Vector2(b) + Vector2(1e-4, 2e-4)
 	for k in range(1, n + 1):
 		var p := fa.lerp(fb, float(k) / n)
-		out.append(_round_hex(p.x, p.y))
+		out.append(Vector2i(roundi(p.x), roundi(p.y)) if SQUARE else _round_hex(p.x, p.y))
 	return out
 
 
@@ -290,13 +312,15 @@ func on_ground(c: Vector2i) -> bool:
 	return ground.has(c)
 
 
-## Flat position of an axial hex (unit hex radius, y up).
+## Flat position of a cell (unit hex radius, y up).
 static func flat(c: Vector2i) -> Vector2:
+	if SQUARE:
+		return Vector2(c.x, -c.y) * SQ_SIZE
 	return Vector2(sqrt(3.0) * (c.x + c.y / 2.0), -1.5 * c.y)
 
 
 static func _turns(a: int, b: int) -> int:
-	return mini(posmod(a - b, 6), posmod(b - a, 6))
+	return mini(posmod(a - b, FACES.size()), posmod(b - a, FACES.size()))
 
 
 ## Which of the boss's arcs hex c is in. Hexes on the line between two arcs are in both.
@@ -307,15 +331,17 @@ func arcs_of(c: Vector2i, f := -1) -> Array[String]:
 	if c == boss:
 		return out
 	var d := flat(c - boss)
-	var rel := wrapf(rad_to_deg(atan2(d.y, d.x)) - 60.0 * f, -180.0, 180.0)
+	var step := 360.0 / FACES.size()
+	var rel := wrapf(rad_to_deg(atan2(d.y, d.x)) - step * f, -180.0, 180.0)
 	var e := 0.5
-	if absf(rel) <= 30.0 + e:
+	var h := step / 2.0  # the front arc's half width
+	if absf(rel) <= h + e:
 		out.append("front")
-	if rel >= 30.0 - e and rel <= 150.0 + e:
+	if rel >= h - e and rel <= 180.0 - h + e:
 		out.append("left")
-	if rel <= -30.0 + e and rel >= -150.0 - e:
+	if rel <= -h + e and rel >= -180.0 + h - e:
 		out.append("right")
-	if absf(rel) >= 150.0 - e:
+	if absf(rel) >= 180.0 - h - e:
 		out.append("back")
 	return out
 
@@ -349,26 +375,30 @@ func steps(c: Vector2i) -> int:
 
 
 ## The hexes walked from a to b, b last, going round everything in the way
-## but b itself; empty if there's no way.
+## but b itself; empty if there's no way. Of the shortest ways, it takes the
+## one that keeps heading straightest at b.
 func path(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
-	var from := {a: a}
-	var open: Array[Vector2i] = [a]
-	while not open.is_empty():
+	var to_b := {b: 0}
+	var open: Array[Vector2i] = [b]
+	while not open.is_empty() and not to_b.has(a):
 		var at: Vector2i = open.pop_front()
-		if at == b:
-			break
 		for d in DIRS:
 			var n := at + d
-			if not from.has(n) and (n == b or (_walkable(n) and n != hero)):
-				from[n] = at
+			if not to_b.has(n) and (n == a or (_walkable(n) and n != hero)):
+				to_b[n] = to_b[at] + 1
 				open.append(n)
 	var out: Array[Vector2i] = []
-	if a == b or not from.has(b):
+	if a == b or not to_b.has(a):
 		return out
-	var c := b
-	while c != a:
-		out.push_front(c)
-		c = from[c]
+	var c := a
+	while c != b:
+		var best := NONE
+		for d in DIRS:
+			var n := c + d
+			if to_b.get(n, -1) == to_b[c] - 1 and (best == NONE or flat(n).distance_to(flat(b)) < flat(best).distance_to(flat(b))):
+				best = n
+		out.append(best)
+		c = best
 	return out
 
 
@@ -604,13 +634,13 @@ func skill_damage(key: String, at := NONE, target := NONE) -> int:
 
 ## The 3 hexes a sweep centred on the hex in direction i hits.
 func sweep_hexes(i: int) -> Array[Vector2i]:
-	return [hero + DIRS[posmod(i - 1, 6)], hero + DIRS[i], hero + DIRS[posmod(i + 1, 6)]]
+	return [hero + DIRS[posmod(i - 1, DIRS.size())], hero + DIRS[i], hero + DIRS[posmod(i + 1, DIRS.size())]]
 
 
 ## The directions a sweep can be centred on to catch an enemy.
 func sweep_aims() -> Array[int]:
 	var out: Array[int] = []
-	for i in 6:
+	for i in DIRS.size():
 		for c in sweep_hexes(i):
 			if enemy_at(c):
 				out.append(i)
@@ -1013,7 +1043,8 @@ func step() -> void:
 	elif s.has("move"):
 		_boss_move(s.move)
 	elif s.has("turn"):
-		facing = posmod(facing + s.turn, 6)
+		# cards count turns in 60 degrees; squares turn 90
+		facing = posmod(facing + roundi(s.turn * FACES.size() / 6.0), FACES.size())
 	elif s.has("leap"):
 		_leap()
 	elif s.has("aim"):
@@ -1071,28 +1102,32 @@ func _hits_hero(a: Dictionary, from: Vector2i) -> void:
 
 
 func _boss_move(n: int) -> void:
+	var nf := FACES.size()
 	for k in absi(n):
 		var here := dist(boss, hero)
 		if n > 0 and here == 1:
-			facing = DIRS.find(hero - boss)
+			facing = _facing_to(hero)
 			return
-		var best := -1
-		for i in 6:
-			var c := boss + DIRS[i]
+		var best := NONE
+		var bf := 0
+		for d in DIRS:
+			var c := boss + d
 			if not open_hex(c):
 				continue
-			var d := dist(c, hero)
-			if (n > 0 and d >= here) or (n < 0 and d <= here):
+			var dd := dist(c, hero)
+			if (n > 0 and dd >= here) or (n < 0 and dd <= here):
 				continue
 			# moving forward the boss faces where it goes; backing off, its back does
-			var f := i if n > 0 else (i + 3) % 6
-			var bf := best if n > 0 else (best + 3) % 6
-			if best < 0 or _turns(f, facing) < _turns(bf, facing):
-				best = i
-		if best < 0:
+			var f := _facing_from(Vector2i.ZERO, d)
+			if n < 0:
+				f = (f + nf / 2) % nf
+			if best == NONE or _turns(f, facing) < _turns(bf, facing):
+				best = c
+				bf = f
+		if best == NONE:
 			return
-		facing = best if n > 0 else (best + 3) % 6
-		boss += DIRS[best]
+		facing = bf
+		boss = best
 		events.append({"type": "boss_move"})
 
 
@@ -1143,7 +1178,7 @@ func _aim(turns: int, moves: int) -> void:
 			best = [st[0], st[1]]
 		if st[2] < turns:
 			for k in [1, -1]:
-				open.append([st[0], posmod(st[1] + k, 6), st[2] + 1, st[3]])
+				open.append([st[0], posmod(st[1] + k, FACES.size()), st[2] + 1, st[3]])
 		if st[3] < moves:
 			for d in DIRS:
 				if open_hex(st[0] + d):
@@ -1162,8 +1197,8 @@ func _facing_to(c: Vector2i) -> int:
 static func _facing_from(a: Vector2i, c: Vector2i) -> int:
 	var to := flat(c - a).normalized()
 	var best := 0
-	for i in 6:
-		if flat(DIRS[i]).dot(to) > flat(DIRS[best]).dot(to):
+	for i in FACES.size():
+		if flat(FACES[i]).dot(to) > flat(FACES[best]).dot(to) + 1e-4:
 			best = i
 	return best
 

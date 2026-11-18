@@ -155,6 +155,20 @@ Like Stoneshard: each piece of gear brings its own moves.
   shorter dodge bar (agreed 2026-11-18; built already as the faster bar).
 - Open: shield its own slot?
 
+## Square grid mode (built 2026-11-18, to try)
+One attack on squares instead of hexes, as a 4th choice after Play.
+- 8 ways to step, a diagonal costs 1 (like a chess king); move 3, one attack.
+  Next to you includes the diagonals.
+- The boss and the small enemies face 4 ways (sprites are flips, no rotated
+  pixels). Boss sides by angle: the square ahead is front, the two front
+  corners are front and side, the squares beside it are its sides, the back
+  three mirror the front. Card turns: a half turn stays a half turn, other
+  turns are a quarter.
+- Same keep on squares (square rooms, 1-square doors, straight 3-wide
+  hallway), same enemies and numbers; distances counted in king steps.
+- Sweep: the square tapped plus one each side of it (of the 8 round you).
+- Walking takes the straightest of the shortest ways (both grids).
+
 ## The keep: bonfire, hallway, boss (built 2026-11-18, to try)
 To test fighting several enemies at once. Layout and numbers PLACEHOLDER.
 - After the equipment screen you start at the bonfire. Out of a fight you
