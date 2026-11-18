@@ -9,6 +9,11 @@ const DARK := Color("4a4e58")
 const EDGE := Color("cdd0d4")
 const HERO := Color("d2b47a")
 const HERO_DARK := Color("7a6440")
+const FOE := Color("9c6b5e")  ## the small enemies (PLACEHOLDER colours)
+const FOE_DARK := Color("5e3f38")
+const FIRE := Color("d9904f")
+const FIRE_HOT := Color("ead08a")
+const WOOD := Color("5a4630")
 const SCALE := 2.9  ## boss size (PLACEHOLDER)
 const R := 31  ## boss image half size
 const HERO_SCALE := 2.0  ## hero size (PLACEHOLDER)
@@ -40,6 +45,45 @@ static func hero(f: int, weapon: String) -> ImageTexture:
 static func hero_image(f: int, weapon: String) -> Image:
 	var shape: Callable = {"longsword": _longsword_at, "claymore": _claymore_at, "bow": _bow_at}[weapon]
 	return _sample(f, HR, HERO_SCALE, shape)
+
+
+## A small enemy of kind (swordsman, crossbowman) holding held, facing f.
+static func foe(kind: String, held: String, f: int) -> ImageTexture:
+	var key := "foe %s %s %d" % [kind, held, f]
+	if not _cache.has(key):
+		_cache[key] = ImageTexture.create_from_image(foe_image(kind, held, f))
+	return _cache[key]
+
+
+static func foe_image(_kind: String, held: String, f: int) -> Image:
+	var shape: Callable = {"sword": _foe_sword_at, "crossbow": _foe_crossbow_at, "shortsword": _foe_shortsword_at}[held]
+	return _sample(f, HR, HERO_SCALE, shape)
+
+
+const BONFIRE := 12  ## bonfire image half size
+
+
+static func bonfire() -> ImageTexture:
+	if not _cache.has("bonfire"):
+		var img := Image.create_empty(2 * BONFIRE, 2 * BONFIRE, false, Image.FORMAT_RGBA8)
+		for py in 2 * BONFIRE:
+			for px in 2 * BONFIRE:
+				var col: Variant = _bonfire_at(px + 0.5 - BONFIRE, py + 0.5 - BONFIRE)
+				if col != null:
+					img.set_pixel(px, py, col)
+		_cache["bonfire"] = ImageTexture.create_from_image(img)
+	return _cache["bonfire"]
+
+
+## Logs crossed under a fire, seen from above.
+static func _bonfire_at(x: float, y: float) -> Variant:
+	if _ell(x, y, 0, 0, 2.5, 2.5):
+		return FIRE_HOT
+	if _ell(x, y, 0, 0, 5, 5):
+		return FIRE
+	if _seg(x, y, -9, -6, 9, 6, 1.6) or _seg(x, y, -9, 6, 9, -6, 1.6):
+		return WOOD
+	return null
 
 
 const ICON := 24  ## menu icon size in pixels
@@ -219,4 +263,41 @@ static func _claymore_at(x: float, y: float) -> Variant:
 		return HERO  # crossguard
 	if _ell(x, y, -0.4, 0, 3.0, 5.0):
 		return HERO_DARK  # shoulders
+	return null
+
+
+## A small enemy with a sword (looks along +x, its left is -y).
+static func _foe_sword_at(x: float, y: float) -> Variant:
+	if _ell(x, y, 0.5, 0, 2.2, 2.2):
+		return FOE  # helmet
+	if _seg(x, y, 1.5, 4.2, 9.0, 4.2, 0.55):
+		return STEEL  # sword in the right hand
+	if _ell(x, y, -0.4, 0, 3.0, 5.0):
+		return FOE_DARK  # shoulders
+	return null
+
+
+## A small enemy with a crossbow held out front.
+static func _foe_crossbow_at(x: float, y: float) -> Variant:
+	if _ell(x, y, 0.5, 0, 2.2, 2.2):
+		return FOE  # helmet
+	if _seg(x, y, 7.5, 0, 6.0, -3.6, 0.55) or _seg(x, y, 7.5, 0, 6.0, 3.6, 0.55):
+		return EDGE  # the bow
+	if _seg(x, y, 2.5, 0, 8.0, 0, 0.6):
+		return STEEL  # the stock
+	if _ell(x, y, -0.4, 0, 3.0, 5.0):
+		return FOE_DARK  # shoulders
+	return null
+
+
+## The crossbowman with his shortsword out.
+static func _foe_shortsword_at(x: float, y: float) -> Variant:
+	if _ell(x, y, 0.5, 0, 2.2, 2.2):
+		return FOE  # helmet
+	if _seg(x, y, 1.5, 4.2, 6.5, 4.2, 0.55):
+		return STEEL  # shortsword in the right hand
+	if _seg(x, y, -2.5, -3.0, -2.5, 3.0, 0.5):
+		return STEEL  # the crossbow on his back
+	if _ell(x, y, -0.4, 0, 3.0, 5.0):
+		return FOE_DARK  # shoulders
 	return null

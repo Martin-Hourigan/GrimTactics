@@ -16,6 +16,8 @@ const HURT := Color("d06a5a")
 const GOOD := Color("8cbf8a")
 const PANEL := Color("16161a")
 const OFF := Color("2a2a30")
+const WALL := Color("2e2a26")
+const WALK_STEP := 0.12  ## seconds per hex walking out of a fight
 
 const BOSSES := {"knight": "Knight"}  ## PLACEHOLDER name
 const SLOTS := ["Weapon 1", "Weapon 2", "Armour"]
@@ -24,6 +26,7 @@ const SETTINGS := "user://settings.cfg"
 
 var screen := "title"  ## title, settings, mode, boss, equip, fight
 var mode := "stamina"
+var level := "keep"  ## where Fight starts: keep (the bonfire), or arena (the boss alone)
 var portrait := true  ## phone held upright: the room above the panel
 var boss := "knight"
 var picking := -1  ## the equipment slot whose grid is open, or -1
@@ -41,7 +44,14 @@ var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
 var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
 var menu := ""  ## the hero's menu: "" (top), attack, skills, items
-var aiming := ""  ## picking a hex for: run (the running attack), sweep, shot0/shot1 (bow attacks), aimed
+## picking a hex for: hit0/hit1 (melee attacks), run (the running attack's
+## hex), runhit (who it hits), combo, sweep, shot0/shot1 (bow attacks), aimed
+var aiming := ""
+var run_to := Vector2i.ZERO  ## the hex the running attack runs to, while picking who it hits
+var walking: Array[Vector2i] = []  ## hexes left to walk, out of a fight
+var walk_t := 0.0
+var hero_face := 2  ## the way the hero looks out of a fight
+var walls: Array[Vector2i] = []  ## the hexes drawn as wall round the ground
 var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
 var shot_at := 60
@@ -81,6 +91,9 @@ func _ready() -> void:
 	var pk := args.find("--pick")
 	if pk >= 0 and pk + 1 < args.size():
 		picking = int(args[pk + 1])
+	var li := args.find("--level")
+	if li >= 0 and li + 1 < args.size():
+		level = args[li + 1]
 	var mi := args.find("--mode")
 	if mi >= 0 and mi + 1 < args.size():
 		mode = args[mi + 1]
@@ -91,10 +104,17 @@ func _ready() -> void:
 		weapons = Array(args[wi + 1].split(","))
 	if "--fight" in args or auto > 0:
 		start()
+	var at := args.find("--at")  # --at q,r: the hero starts there (for screenshots)
+	if at >= 0 and at + 1 < args.size() and fight != null:
+		var qr: PackedStringArray = args[at + 1].split(",")
+		fight.hero = Vector2i(int(qr[0]), int(qr[1]))
+		fight._wake()
+		cam = _cam_target()
 	if shot_menu != "":
 		menu = shot_menu.get_slice("-", 0)
 		aiming = shot_menu.get_slice("-", 1) if "-" in shot_menu else ""
-		fight.hero = fight.boss + Fight.DIRS[5] * (1 if aiming in ["", "sweep"] else 3)
+		if at < 0:
+			fight.hero = fight.boss + Fight.DIRS[5] * (1 if aiming in ["", "sweep", "hit0", "hit1", "combo"] else 3)
 		cam = _cam_target()
 	font = ThemeDB.fallback_font
 	var cfg := ConfigFile.new()
@@ -149,7 +169,14 @@ func _po() -> Vector2:
 
 
 func start() -> void:
-	fight = Fight.new(weapons[0], armour, randi(), weapons[1], mode)
+	fight = Fight.new(weapons[0], armour, randi(), weapons[1], mode, level)
+	walls.clear()
+	for c in fight.ground:
+		for d in Fight.DIRS:
+			if not fight.ground.has(c + d) and not c + d in walls:
+				walls.append(c + d)
+	walking.clear()
+	hero_face = 2
 	popups.clear()
 	check = {}
 	picking_dodge = false
@@ -170,9 +197,12 @@ func _process(delta: float) -> void:
 	update_note = maxf(0.0, update_note - delta)
 	if screen == "fight":
 		_tick(delta)
-		if fight.phase != "hero":
+		if not fight.phase in ["hero", "explore"]:
 			menu = ""
+		if fight.phase != "hero":
 			aiming = ""
+		if fight.phase != "explore":
+			walking.clear()
 		cam = cam.lerp(_cam_target(), minf(1.0, delta * 10.0))
 		if cam.distance_to(_cam_target()) < 0.5:
 			cam = _cam_target()
@@ -200,6 +230,15 @@ func _tick(delta: float) -> void:
 				check = {}
 		elif Fight.bar(check.t, check.diff, check.time) >= 1.0:
 			_stop_check()
+	elif fight.phase == "explore" and not walking.is_empty():
+		walk_t += delta
+		if walk_t >= WALK_STEP:
+			walk_t = 0.0
+			var c: Vector2i = walking.pop_front()
+			hero_face = Fight._facing_from(fight.hero, c)
+			fight.walk(c)
+			if fight.hero != c:
+				walking.clear()
 	elif fight.phase == "boss":
 		pause += delta
 		if pause >= BOSS_STEP:
@@ -220,10 +259,12 @@ func _tick(delta: float) -> void:
 func _take_events() -> void:
 	for e in fight.events:
 		match e.type:
-			"hit_boss":
-				_popup(str(e.dmg), hex_pos(fight.boss) + Vector2([0, -12, 12][e.k % 3], -12 - e.k * 5), TEXT)
-				if Fight.dist(e.from, fight.boss) > 1:
-					arrow = {"from": hex_pos(e.from), "to": hex_pos(fight.boss), "t": 0.0}
+			"hit":
+				_popup(str(e.dmg), hex_pos(e.at) + Vector2([0, -12, 12][e.k % 3], -12 - e.k * 5), TEXT)
+				if Fight.dist(e.from, e.at) > 1:
+					arrow = {"from": hex_pos(e.from), "to": hex_pos(e.at), "t": 0.0}
+			"bolt":
+				arrow = {"from": hex_pos(e.from), "to": hex_pos(e.to), "t": 0.0}
 			"hit_hero":
 				_popup(str(e.dmg), hex_pos(fight.hero) + Vector2(0, -8), HURT)
 			"dodged":
@@ -287,13 +328,16 @@ func _unhandled_input(ev: InputEvent) -> void:
 		screen = "settings"
 		return
 	if fight.phase in ["win", "lose"]:
-		screen = "equip"
+		if fight.phase == "lose" and fight.level == "keep":
+			start()  # back at the bonfire
+		else:
+			screen = "equip"
 		return
 	if auto > 0:
 		return
 	if fight.phase == "defend":
 		_defend_tap(p)
-	elif fight.phase == "hero":
+	elif fight.phase in ["hero", "explore"]:
 		_hero_tap(p)
 
 
@@ -469,8 +513,22 @@ func _hero_tap(p: Vector2) -> void:
 	if aiming != "":
 		var was := aiming
 		aiming = ""
+		if was.begins_with("hit") and c != null and fight.can_attack(int(was.substr(3)), c):
+			fight.attack(int(was.substr(3)), c)
+			return
+		if was == "combo" and c != null and fight.in_reach(c):
+			fight.combo_attack(c)
+			return
 		if was == "run" and c != null and c in fight.run_hexes():
-			fight.run_attack(c)
+			var ts := fight.run_targets(c)
+			if ts.size() == 1:
+				fight.run_attack(c, ts[0])
+			else:
+				run_to = c
+				aiming = "runhit"
+			return
+		if was == "runhit" and c != null and c in fight.run_targets(run_to):
+			fight.run_attack(run_to, c)
 			return
 		if was == "sweep" and c != null and _sweep_dir(c) in fight.sweep_aims():
 			fight.sweep(_sweep_dir(c))
@@ -482,26 +540,27 @@ func _hero_tap(p: Vector2) -> void:
 			fight.aimed_shot(c)
 			return
 	var back := menu != "" and _button(4).has_point(p)
+	var in_fight := fight.phase == "hero"
 	match menu:
 		"":
-			if _button(0).has_point(p):
+			if _button(0).has_point(p) and in_fight:
 				menu = "attack"
-			elif _button(1).has_point(p) and not fight.skills().is_empty():
+			elif _button(1).has_point(p) and in_fight and not fight.skills().is_empty():
 				menu = "skills"
 			elif _button(2).has_point(p):
 				menu = "items"
 			elif _button(3).has_point(p):
 				fight.swap()
 			elif _button(4).has_point(p):
-				fight.end_turn()
+				if in_fight:
+					fight.end_turn()
+				else:
+					fight.rest()
 		"attack":
 			for i in Fight.WEAPONS[fight.weapon].acts.size():
 				if _button(i).has_point(p):
-					if fight.ranged():
-						if fight.can_attack(i):
-							aiming = "shot%d" % i
-					else:
-						fight.attack(i)
+					if fight.can_attack(i):
+						aiming = ("shot%d" if fight.ranged() else "hit%d") % i
 			if _button(2).has_point(p) and fight.can_run_attack():
 				aiming = "run"
 		"skills":
@@ -510,7 +569,7 @@ func _hero_tap(p: Vector2) -> void:
 				if _button(i).has_point(p) and fight.can_skill(sk[i]):
 					match sk[i]:
 						"combo":
-							fight.combo_attack()
+							aiming = "combo"
 						"sweep":
 							aiming = "sweep"
 						"aimed":
@@ -521,7 +580,12 @@ func _hero_tap(p: Vector2) -> void:
 	if back:
 		menu = ""
 		return
-	if c != null and fight.can_move(c) and _hex_free(p):
+	if c == null or not _hex_free(p):
+		return
+	if fight.phase == "explore" and fight.steps(c) > 0:
+		walking = fight.path(fight.hero, c)
+		walk_t = WALK_STEP
+	elif fight.can_move(c):
 		fight.move(c)
 
 
@@ -534,7 +598,7 @@ func _sweep_dir(c: Vector2i) -> int:
 func _hex_free(p: Vector2) -> bool:
 	if p.y < 32:
 		return false
-	return p.y < _po().y - 6 if portrait else p.x < _po().x - 6
+	return p.y < _po().y + 76 if portrait else p.x < _po().x - 6
 
 
 func _defend_tap(p: Vector2) -> void:
@@ -554,7 +618,7 @@ func _defend_tap(p: Vector2) -> void:
 
 
 func _hex_at(p: Vector2) -> Variant:
-	for c in Fight.room():
+	for c in fight.ground:
 		if p.distance_to(hex_pos(c)) < HR * 0.9:
 			return c
 	return null
@@ -775,7 +839,13 @@ func _hex_poly(c: Vector2, r: float) -> PackedVector2Array:
 func _draw_room() -> void:
 	var hitting: Array = fight.incoming.get("hexes", flash_hexes if flash > 0.0 else [])
 	var dodging: Array = fight.dodge_hexes() if picking_dodge else []
-	for c in Fight.room():
+	var shots := []
+	if aiming.begins_with("shot") or aiming == "aimed":
+		for e in fight.targets():
+			shots.append_array(fight.shot_path(e))
+	for c in walls:
+		draw_colored_polygon(_hex_poly(hex_pos(c), HR - 1.0), WALL)
+	for c in fight.ground:
 		var col := HEX
 		if c in hitting:
 			col = HEX_HIT
@@ -786,7 +856,11 @@ func _draw_room() -> void:
 		elif aiming == "sweep":
 			col = HEX_REACH if _sweep_dir(c) in fight.sweep_aims() else HEX
 		elif aiming.begins_with("shot") or aiming == "aimed":
-			col = HEX_REACH if fight.can_aim(fight.boss) and c in fight.shot_path(fight.boss) else HEX
+			col = HEX_REACH if c in shots else HEX
+		elif aiming == "runhit":
+			col = HEX_REACH if c == run_to else HEX
+		elif aiming != "":
+			col = HEX
 		elif fight.phase == "hero" and fight.can_move(c):
 			col = HEX_REACH
 		if c != fight.boss and fight.phase == "hero" and fight.weak_at(c) and not c in hitting:
@@ -804,25 +878,47 @@ func _draw_room() -> void:
 			var base := hex_pos(c) + Vector2(0, 8)
 			for k in n:
 				draw_rect(Rect2((base + Vector2(k * 3 - n * 1.5, 0)).round(), Vector2.ONE), DIM)
-	_draw_arc_lines()
-	var bp := hex_pos(fight.boss)
-	draw_texture(Art.boss(fight.facing), bp - Vector2(Art.R, Art.R))
-	# the enemies a bow shot can be aimed at
-	if (aiming.begins_with("shot") or aiming == "aimed") and fight.can_aim(fight.boss):
-		var edge := _hex_poly(bp, HR - 1.0)
+	if fight.bonfire != Fight.NONE:
+		draw_texture(Art.bonfire(), hex_pos(fight.bonfire) - Vector2(Art.BONFIRE, Art.BONFIRE))
+	if fight.boss_in_fight():
+		_draw_arc_lines()
+	if fight.boss_hp > 0:
+		draw_texture(Art.boss(fight.facing), hex_pos(fight.boss) - Vector2(Art.R, Art.R))
+	for f in fight.foes:
+		if f.hp <= 0:
+			continue
+		var fp := hex_pos(f.at)
+		draw_texture(Art.foe(f.kind, f.held, f.facing), fp - Vector2(Art.HR, Art.HR))
+		if f.awake:
+			var bw := 20.0
+			draw_rect(Rect2(fp + Vector2(-bw / 2, -HR + 1), Vector2(bw, 2)), OFF)
+			draw_rect(Rect2(fp + Vector2(-bw / 2, -HR + 1), Vector2(roundf(bw * f.hp / Fight.FOES[f.kind].hp), 2)), HURT)
+	# the enemies the attack being aimed can hit
+	for c in _aim_targets():
+		var edge := _hex_poly(hex_pos(c), HR - 1.0)
 		edge.append(edge[0])
 		draw_polyline(edge, TEXT if fmod(t, 0.6) < 0.4 else DIM, 1.0)
 	draw_texture(Art.hero(_hero_facing(), fight.weapon), hex_pos(fight.hero) - Vector2(Art.HR, Art.HR))
 
 
-## The hero turns to whichever of the 6 directions points most at the boss.
+## The enemies that can be tapped for the attack being aimed.
+func _aim_targets() -> Array[Vector2i]:
+	if aiming.begins_with("hit") or aiming.begins_with("shot") or aiming in ["combo", "aimed"]:
+		return fight.targets()
+	if aiming == "runhit":
+		return fight.run_targets(run_to)
+	return []
+
+
+## In a fight the hero looks at the nearest enemy in it; otherwise the way it walked.
 func _hero_facing() -> int:
-	var to := Fight.flat(fight.boss - fight.hero).normalized()
-	var best := 0
-	for i in 6:
-		if Fight.flat(Fight.DIRS[i]).dot(to) > Fight.flat(Fight.DIRS[best]).dot(to):
-			best = i
-	return best
+	var best := Fight.NONE
+	for c in fight.fighting():
+		if best == Fight.NONE or Fight.dist(fight.hero, c) < Fight.dist(fight.hero, best):
+			best = c
+	if best == Fight.NONE or fight.phase == "explore":
+		return hero_face
+	return Fight._facing_from(fight.hero, best)
 
 
 ## The lines between the boss's four arcs.
@@ -843,20 +939,21 @@ func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
 func _draw_top() -> void:
 	var w := _view().x
 	draw_rect(Rect2(0, 0, w, 32), Art.BG)
-	_bar(Vector2(8, 8), w - 40, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
-	var cname: String = fight.card.get("name", "-")
-	_text(cname, Vector2(8, 26), TEXT if fight.phase in ["boss", "defend"] else DIM)
-	var deck := "deck %d" % fight.deck.size()
-	_text(deck, Vector2(w - 32 - font.get_string_size(deck, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x, 26), DIM)
+	if fight.boss_in_fight() or fight.phase == "win":
+		_bar(Vector2(8, 8), w - 40, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
+		var cname: String = fight.card.get("name", "-")
+		_text(cname, Vector2(8, 26), TEXT if fight.phase in ["boss", "defend"] and fight.actor == "boss" else DIM)
+		var deck := "deck %d" % fight.deck.size()
+		_text(deck, Vector2(w - 32 - font.get_string_size(deck, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x, 26), DIM)
 	var cog := _cog_button()
 	draw_texture(Art.icon("cog"), (cog.get_center() - Vector2(Art.ICON, Art.ICON) / 2).round())
 
 
 func _draw_panel() -> void:
 	var o := _po()
-	# the room scrolls under the panel
+	# the room scrolls under the panel; in portrait it shows down to the hero's rows
 	if portrait:
-		draw_rect(Rect2(0, o.y - 6, _view().x, _view().y - o.y + 6), Art.BG)
+		draw_rect(Rect2(0, o.y + 76, _view().x, _view().y - o.y - 76), Art.BG)
 	else:
 		draw_rect(Rect2(o.x - 6, 0, _view().x - o.x + 6, _view().y), Art.BG)
 	# in portrait the hero's rows sit under the defend pop-up
@@ -871,13 +968,14 @@ func _draw_panel() -> void:
 		# who goes next, this turn first
 		var order := fight.turn_order(8)
 		for k in order.size():
-			draw_rect(Rect2(o + Vector2(30 + k * 10, 66 + y), Vector2(7, 7)), Art.HERO if order[k] == "hero" else Art.STEEL)
+			var oc: Color = {"hero": Art.HERO, "boss": Art.STEEL}.get(order[k], Art.FOE)
+			draw_rect(Rect2(o + Vector2(30 + k * 10, 66 + y), Vector2(7, 7)), oc)
 		draw_rect(Rect2(o + Vector2(30, 75 + y), Vector2(7, 1)), TEXT)
 	for k in Fight.FLASKS:
 		draw_rect(Rect2(o + Vector2(30 + k * 10, 80 + y), Vector2(7, 7)), HURT if k < fight.flasks else OFF)
 	if fight.arrows > 0 or Fight.WEAPONS[fight.weapon].has("arrows") or Fight.WEAPONS[fight.spare].has("arrows"):
 		_text("arrows %d" % fight.arrows, o + Vector2(120, 87 + y), TEXT if fight.arrows > 0 else DIM)
-	if fight.phase == "hero":
+	if fight.phase in ["hero", "explore"]:
 		_draw_menu()
 
 
@@ -886,17 +984,21 @@ func _draw_menu() -> void:
 	var st := fight.uses_stamina()
 	match menu:
 		"":
-			_entry(0, "Attack", true, 0, "", true)
-			_entry(1, "Skills", not fight.skills().is_empty(), 0, "", true)
+			var in_fight := fight.phase == "hero"
+			_entry(0, "Attack", in_fight, 0, "", true)
+			_entry(1, "Skills", in_fight and not fight.skills().is_empty(), 0, "", true)
 			_entry(2, "Items", true, 0, "", true)
-			_entry(3, "Swap: " + Fight.WEAPONS[fight.spare].label, fight.can_swap(), Fight.SWAP_COST if st else 0, "", false, false, 160)
-			_entry(4, "End turn", true)
+			_entry(3, "Swap: " + Fight.WEAPONS[fight.spare].label, fight.can_swap(), Fight.SWAP_COST if st and in_fight else 0, "", false, false, 160)
+			if in_fight:
+				_entry(4, "End turn", true)
+			elif fight.can_rest():
+				_entry(4, "Rest", true)
 		"attack":
 			var acts: Array = Fight.WEAPONS[fight.weapon].acts
 			for i in acts.size():
-				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)), false, aiming == "shot%d" % i)
+				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)), false, aiming in ["shot%d" % i, "hit%d" % i])
 			if fight.has_run():
-				_entry(2, "Running attack", fight.can_run_attack(), acts[0].st if st else 0, "", false, aiming == "run")
+				_entry(2, "Running attack", fight.can_run_attack(), acts[0].st if st else 0, "", false, aiming in ["run", "runhit"])
 		"skills":
 			var sk: Array = fight.skills()
 			for i in sk.size():

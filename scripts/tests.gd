@@ -506,6 +506,128 @@ static func run() -> int:
 	f.arrows = 0
 	check(not f.can_skill("aimed"), "no arrows, no aimed shot")
 
+	print("the keep")
+	f = Fight.new("longsword", "light", 1, "claymore", "one", "keep")
+	check(f.phase == "explore" and f.can_rest(), "it starts out of a fight, next to the bonfire")
+	check(f.on_ground(Fight.KEEP_DOOR) and not f.on_ground(Fight.KEEP_DOOR + Vector2i(3, 0)), "walls round the rooms and the hallway")
+	var way := f.path(f.hero, Fight.KEEP_DOOR + Vector2i(-1, 2))
+	check(not way.is_empty(), "a way from the bonfire up to the boss's door")
+	for c in way:
+		f.walk(c)
+		if f.phase != "explore":
+			break
+	check(f.phase == "hero" and f.foes[0].awake, "the swordsman wakes once he can see the hero, and the fight starts")
+	check(Fight.dist(f.hero, f.foes[0].at) == Fight.WAKE and not f.foes[1].awake and not f.boss_awake, "5 hexes off; the crossbowman and the boss are too far")
+	var g := Fight.new("longsword", "light", 1)
+	g.hero = Vector2i(0, 2)
+	check(g.sees(Vector2i.ZERO), "nothing in the way, it sees")
+	g.ground.erase(Vector2i(0, 1))
+	check(not g.sees(Vector2i.ZERO), "a wall in the way, it doesn't")
+	f = Fight.new("longsword", "light", 1, "", "one", "keep")
+	f.hero = Fight.KEEP_DOOR
+	f._wake()
+	check(f.boss_awake and f.phase == "hero", "the boss wakes at its door")
+
+	print("the swordsman")
+	f = Fight.new("longsword", "light", 1, "", "one", "keep")
+	f.hero = Vector2i(-7, 14)
+	f._wake()
+	check(f.foes[0].awake and not f.foes[1].awake and Fight.dist(f.hero, f.foes[0].at) == 4, "awake, 4 hexes off")
+	f.end_turn()
+	for k in 5:
+		f.step()
+	check(f.phase == "hero" and Fight.dist(f.hero, f.foes[0].at) == 2, "he comes 2 hexes closer")
+	f.end_turn()
+	for k in 5:
+		f.step()
+	check(f.phase == "defend" and Fight.dist(f.hero, f.foes[0].at) == 1 and f.incoming.name == "Sword", "then he's next to the hero and attacks")
+	f.take_hit()
+	check(f.hp == Fight.HERO_HP - Fight.FOE_ATTACKS.sword.dmg, "for his sword's damage")
+
+	print("the crossbowman")
+	f = Fight.new("longsword", "light", 1, "", "one", "keep")
+	f.foes[0].hp = 0
+	f.hero = Vector2i(-5, 11)
+	f._wake()
+	check(f.foes[1].awake, "awake")
+	f.end_turn()
+	for k in 5:
+		f.step()
+	check(f.phase == "defend" and f.incoming.name == "Crossbow", "he shoots from where he stands")
+	f.take_hit()
+	for k in 5:
+		f.step()
+	f.hero = f.foes[1].at + Fight.DIRS[5]
+	f.end_turn()
+	for k in 5:
+		f.step()
+	check(f.foes[1].held == "shortsword" and f.phase == "defend" and f.incoming.name == "Shortsword", "next to him, he pulls out a shortsword")
+	f.take_hit()
+	for k in 5:
+		f.step()
+	f.hero = Vector2i(-5, 11)
+	f.end_turn()
+	for k in 5:
+		f.step()
+	check(f.foes[1].held == "crossbow" and f.incoming.name == "Crossbow", "and back to the crossbow when the hero steps off")
+	f = Fight.new("longsword", "light", 1, "", "one", "keep")
+	f.hero = Vector2i(-5, 11)
+	f.foes[0].at = Fight.line(f.foes[1].at, f.hero)[1]
+	f.foes[0].awake = true
+	f.foes[1].awake = true
+	f.phase = "hero"
+	f._enemy_turn(["f1"])
+	for k in 5:
+		f.step()
+	check(f.foes[0].hp == Fight.FOES.swordsman.hp - Fight.FOE_ATTACKS.crossbow.dmg and f.hp == Fight.HERO_HP, "the bolt hits the swordsman in the way")
+
+	print("several enemies")
+	f = Fight.new("claymore", "light", 1, "", "one")
+	f.facing = 2
+	f.hero = Vector2i(0, 1)
+	var foe_at := f.hero + Fight.DIRS[0]
+	f.foes.append({"kind": "swordsman", "at": foe_at, "start": foe_at, "hp": 80, "held": "sword", "facing": 3, "awake": true})
+	check(f.targets().size() == 2, "both enemies next to the hero can be hit")
+	f.attack(0, foe_at)
+	check(f.foes[0].hp == 80 - Fight.WEAPONS.claymore.acts[0].dmg and f.boss_hp == Fight.BOSS_HP, "the attack hits the one picked, with no block")
+	f.end_turn()
+	f.queue = []
+	f.to_go = []
+	f.step()
+	f.foes[0].hp = 80
+	f.foes[0].at = foe_at
+	f.hero = Vector2i(0, 1)
+	var both := false
+	for i in f.sweep_aims():
+		if f.boss in f.sweep_hexes(i) and foe_at in f.sweep_hexes(i):
+			both = true
+			f.sweep(i)
+			break
+	check(both and f.foes[0].hp == 80 - Fight.SKILLS.sweep.dmg and f.boss_hp == Fight.BOSS_HP - (Fight.SKILLS.sweep.dmg - Fight.BOSS_BLOCK), "a sweep hits both")
+	f = Fight.new("bow", "light", 1, "", "one")
+	f.hero = Vector2i(0, 3)
+	f.foes.append({"kind": "swordsman", "at": Vector2i(0, 2), "start": Vector2i(0, 2), "hp": 80, "held": "sword", "facing": 3, "awake": true})
+	f.shoot(0, f.boss)
+	check(f.foes[0].hp < 80 and f.boss_hp == Fight.BOSS_HP, "an arrow at the boss hits the enemy in front of it")
+	f = Fight.new("longsword", "light", 1, "", "one", "order")
+	f.foes.append({"kind": "swordsman", "at": Vector2i(2, 0), "start": Vector2i(2, 0), "hp": 80, "held": "sword", "facing": 3, "awake": true})
+	check("f0" in f.turn_order(6) and "boss" in f.turn_order(6), "turn order: each enemy has its own turns")
+
+	print("after the fight")
+	f = Fight.new("claymore", "light", 1, "", "one", "keep")
+	f.foes[1].hp = 0
+	f.hero = f.foes[0].at + Fight.DIRS[5]
+	f._wake()
+	f.foes[0].hp = 10
+	f.attack(0, f.foes[0].at)
+	check(f.phase == "explore", "no enemy left awake, the fight is over")
+	f.hp = 20
+	f.flasks = 0
+	f.hero = Fight.KEEP_START
+	f.rest()
+	check(f.hp == Fight.HERO_HP and f.flasks == Fight.FLASKS, "resting at the bonfire brings back health and flasks")
+	check(f.foes[0].hp == Fight.FOES.swordsman.hp and f.foes[1].hp > 0 and f.foes[0].at == f.foes[0].start and not f.foes[0].awake, "and the enemies")
+
 	print("whole fights")
 	var ended := 0
 	for s in 20:
@@ -540,6 +662,9 @@ static func run() -> int:
 	check(Art.boss_image(3).get_pixel(2 * Art.R - 1 - 25, Art.R) == img.get_pixel(25, Art.R), "facing left is a mirror of facing right")
 	check(Art.hero_image(0, "longsword").get_width() == 2 * Art.HR and Art.hero_image(1, "claymore").get_width() == 2 * Art.HR, "hero drawn with each weapon")
 	check(Art.hero_image(0, "longsword").get_data() != Art.hero_image(0, "claymore").get_data(), "the two weapons look different")
+	check(Art.foe_image("swordsman", "sword", 0).get_data() != Art.foe_image("crossbowman", "crossbow", 0).get_data(), "the two enemies look different")
+	check(Art.foe_image("crossbowman", "shortsword", 0).get_data() != Art.foe_image("crossbowman", "crossbow", 0).get_data(), "the shortsword shows")
+	check(not Art.bonfire().get_image().is_invisible(), "bonfire drawn")
 	var icons := {}
 	for k in Fight.WEAPONS.keys() + Fight.ARMOURS.keys():
 		var ic := Art.icon_image(k)

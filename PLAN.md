@@ -147,13 +147,42 @@ Like Stoneshard: each piece of gear brings its own moves.
     through the boss's block; uses an arrow.
 - Bow shots are aimed (2026-11-18): pick the attack, then tap an enemy in
   range (outlined). The arrow flies in a straight hex line and hits the first
-  enemy hex it enters (only the boss so far). Same for the Aimed shot.
+  enemy hex it enters. Same for the Aimed shot.
   - Every skill sits out 1 turn after use, so every other turn (2026-11-18).
     Stamina mode costs: combo 5, sweep 3, aimed shot 4 (PLACEHOLDER).
 - Shield: a better block (maybe its own slot; not with two-handed weapons).
 - Armour: the dodge. Heavy armour keeps a dodge but with harder timing, a
   shorter dodge bar (agreed 2026-11-18; built already as the faster bar).
 - Open: shield its own slot?
+
+## The keep: bonfire, hallway, boss (built 2026-11-18, to try)
+To test fighting several enemies at once. Layout and numbers PLACEHOLDER.
+- After the equipment screen you start at the bonfire. Out of a fight you
+  tap a hex and walk there (no turns).
+- A fight starts when an enemy is within 5 hexes of you with line of sight
+  (Martin, 2026-11-18). More enemies join the same way during the fight.
+  When none are left in it, you're out of the fight again.
+- Bonfire room (no enemies) -> hallway (2-3 hexes wide) -> one-hex door ->
+  the boss's room. The boss wakes like the others (at about its door).
+- Swordsman: 80 health; on his turn moves up to 2 hexes towards you, then
+  hits if he's next to you. Sword 40, easy dodge.
+- Crossbowman: 80 health; stays put. Shoots when you're within 6 in a clear
+  line: 30, middle dodge. The bolt hits the first body on its line, so the
+  swordsman can take it. Next to you he pulls out a shortsword (25, easy
+  dodge), same turn; he goes back to the crossbow when you step away.
+- Their attacks use the same Block / Dodge / Take the hit pop-up.
+- Enemy turn: the small enemies, then the boss's card. Turn order mode: each
+  has its own speed (swordsman 8, crossbowman 6).
+- Your attacks with several enemies: pick the attack, the enemies you can
+  hit are outlined, tap one. Running attack: tap the hex, then the enemy if
+  more than one is next to it. Sweep hits every enemy in its 3 hexes.
+- Out of a fight: Items and Swap (free) work; Rest shows when next to the
+  bonfire: health, flasks, arrows, skills back, and the small enemies back
+  where they started.
+- Dying in the keep: back at the bonfire with everything reset, boss too.
+- My defaults to check: rest brings enemies back; the boss room is linked;
+  the hero gets the first turn when a fight starts; enemies have no weak
+  sides; the crossbowman does nothing if he can't see you.
 
 ## Menus (agreed 2026-11-17)
 
