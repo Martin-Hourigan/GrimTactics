@@ -162,7 +162,7 @@ To test fighting several enemies at once. Layout and numbers PLACEHOLDER.
 - A fight starts when an enemy is within 5 hexes of you with line of sight
   (Martin, 2026-11-18). More enemies join the same way during the fight.
   When none are left in it, you're out of the fight again.
-- Bonfire room (no enemies) -> hallway (2-3 hexes wide) -> one-hex door ->
+- Bonfire room (no enemies) -> hallway (3 hexes wide, along a hex line so walking it is straight, no zigzag) -> one-hex door ->
   the boss's room. The boss wakes like the others (at about its door).
 - Swordsman: 80 health; on his turn moves up to 2 hexes towards you, then
   hits if he's next to you. Sword 40, easy dodge.

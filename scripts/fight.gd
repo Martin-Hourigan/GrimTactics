@@ -89,12 +89,14 @@ const FOE_ATTACKS := {
 	"shortsword": {"name": "Shortsword", "dmg": 25, "dodge": 1},
 }
 ## The keep's layout (PLACEHOLDER): the boss's room round 0,0, a door, the
-## hallway, and the bonfire room at the bottom.
-const KEEP_DOOR := Vector2i(-2, 4)
+## hallway, and the bonfire room at the bottom. The hallway runs along a hex
+## line (down-right on screen), so walking it is a straight line.
+const KEEP_DOOR := Vector2i(0, 4)
 const KEEP_HALL := [5, 15]  ## the hallway's first and last rows
-const KEEP_BONFIRE := Vector2i(-9, 18)
-const KEEP_START := Vector2i(-9, 19)
-const KEEP_FOES := [["swordsman", Vector2i(-5, 10)], ["crossbowman", Vector2i(-3, 7)]]
+const KEEP_HALL_WIDTH := [-1, 0, 1]  ## its columns
+const KEEP_BONFIRE := Vector2i(0, 18)
+const KEEP_START := Vector2i(0, 19)
+const KEEP_FOES := [["swordsman", Vector2i(0, 10)], ["crossbowman", Vector2i(1, 7)]]
 
 # ---- boss (all PLACEHOLDER) ----
 const BOSS_HP := 400
@@ -195,14 +197,13 @@ func _build_keep() -> void:
 		ground[c] = true
 	ground[KEEP_DOOR] = true
 	for r in range(KEEP_HALL[0], KEEP_HALL[1] + 1):
-		for q in range(-r, 1):
-			if absf(flat(Vector2i(q, r)).x) <= 1.8:
-				ground[Vector2i(q, r)] = true
+		for q in KEEP_HALL_WIDTH:
+			ground[Vector2i(q, r)] = true
 	for c in near(KEEP_BONFIRE, 2):
 		ground[c] = true
 	bonfire = KEEP_BONFIRE
 	hero = KEEP_START
-	facing = 4  # towards the door
+	facing = 5  # towards the door
 	for k in KEEP_FOES:
 		foes.append({"kind": k[0], "at": k[1], "start": k[1]})
 	_reset_foes()

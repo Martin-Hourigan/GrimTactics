@@ -530,7 +530,7 @@ static func run() -> int:
 
 	print("the swordsman")
 	f = Fight.new("longsword", "light", 1, "", "one", "keep")
-	f.hero = Vector2i(-7, 14)
+	f.hero = Vector2i(0, 14)
 	f._wake()
 	check(f.foes[0].awake and not f.foes[1].awake and Fight.dist(f.hero, f.foes[0].at) == 4, "awake, 4 hexes off")
 	f.end_turn()
@@ -547,7 +547,7 @@ static func run() -> int:
 	print("the crossbowman")
 	f = Fight.new("longsword", "light", 1, "", "one", "keep")
 	f.foes[0].hp = 0
-	f.hero = Vector2i(-5, 11)
+	f.hero = Vector2i(1, 11)
 	f._wake()
 	check(f.foes[1].awake, "awake")
 	f.end_turn()
@@ -565,13 +565,13 @@ static func run() -> int:
 	f.take_hit()
 	for k in 5:
 		f.step()
-	f.hero = Vector2i(-5, 11)
+	f.hero = Vector2i(1, 11)
 	f.end_turn()
 	for k in 5:
 		f.step()
 	check(f.foes[1].held == "crossbow" and f.incoming.name == "Crossbow", "and back to the crossbow when the hero steps off")
 	f = Fight.new("longsword", "light", 1, "", "one", "keep")
-	f.hero = Vector2i(-5, 11)
+	f.hero = Vector2i(1, 11)
 	f.foes[0].at = Fight.line(f.foes[1].at, f.hero)[1]
 	f.foes[0].awake = true
 	f.foes[1].awake = true
