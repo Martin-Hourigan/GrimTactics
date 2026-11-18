@@ -112,6 +112,10 @@ static func frame_image(size: Vector2i) -> Image:
 				var row := cx % COURSE
 				if row != 0 and along != BRICK - 1:
 					c = _brick(row - 1, along, COURSE - 1, BRICK - 1)
+			# the inner course as drawn; the outer one fades into the dark
+			var depth := maxi(FRAME - mini(x, w - 1 - x), FRAME - mini(y, h - 1 - y))  # 1 next to the room
+			if depth > COURSE + 1:
+				c = BG.lerp(c, 1.0 - 0.85 * (depth - COURSE - 1) / COURSE)
 			img.set_pixel(x, y, c)
 	return img
 
