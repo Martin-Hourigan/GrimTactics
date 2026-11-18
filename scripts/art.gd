@@ -61,16 +61,31 @@ static func foe_image(_kind: String, held: String, f: int) -> Image:
 	return _sample(f, HR, HERO_SCALE, shape)
 
 
-const COURSE := 7  ## a course of bricks: 6 rows of stone and 1 of mortar (PLACEHOLDER)
-const BRICK := 16  ## a brick's length, mortar included (PLACEHOLDER)
-const FRAME := 2 * COURSE + 1  ## the room's border thickness: two courses, mortar both sides
-## brick edges, brightest first: the lit corner, fading along the top and left;
-## the outline on the bottom and right (PLACEHOLDER colours)
-const STONE_LIT: Array[Color] = [Color("a49c90"), Color("6e675e"), Color("3e3a35")]
-const STONE_EDGE := Color("2a2724")
+const FRAME := 16  ## the room's border thickness: one wall tile
+## the wall tile, 16 x 16: a: ash (the top edge), t: stone, s: soot (mortar);
+## copied from Hunt2's walls (PLACEHOLDER)
+const WALL_TILE: Array[String] = [
+	"aaaaaaaaaaaaaaaa",
+	"tttttttstttttttt",
+	"tttttttstttttttt",
+	"tttttttstttttttt",
+	"ssssssssssssssss",
+	"ttttstttttttsttt",
+	"ttttsttttttttstt",
+	"ttttsttttttttstt",
+	"ssssssssssssssss",
+	"tttttttstttttttt",
+	"tttttttstttttttt",
+	"tttttttstttttttt",
+	"ssssssssssssssss",
+	"ttttsttttttttstt",
+	"ttttsttttttttstt",
+	"ssssssssssssssss",
+]
+const WALL_COLOURS := {"a": Color("8a8496"), "t": Color("4c4657"), "s": Color("211d29")}
 
 
-## A stone brick border, size outside, FRAME thick, empty inside.
+## A stone wall border, size outside, FRAME thick, empty inside.
 static func frame(size: Vector2i) -> ImageTexture:
 	var key := "frame %d %d" % [size.x, size.y]
 	if not _cache.has(key):
@@ -84,59 +99,22 @@ static func frame_image(size: Vector2i) -> Image:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	for y in h:
 		for x in w:
-			var left := x < FRAME
-			var top := y < FRAME
-			var side := left or x >= w - FRAME
-			var end := top or y >= h - FRAME
+			var side := x < FRAME or x >= w - FRAME
+			var end := y < FRAME or y >= h - FRAME
 			if not side and not end:
 				continue
-			var cx := x if left else x - (w - FRAME)  # across a side band, from its left edge
-			var cy := y if top else y - (h - FRAME)
-			var c := BG
-			if side and end:
-				# a corner stone
-				if cx > 0 and cx < FRAME - 1 and cy > 0 and cy < FRAME - 1:
-					c = _brick(cx - 1, cy - 1, FRAME - 2, FRAME - 2)
-			elif end:
-				# along the top or bottom, every other course offset by half a brick
-				var course := cy / COURSE
-				var u := x - FRAME + course * BRICK / 2
-				var along := posmod(u, BRICK)
-				var row := cy % COURSE
-				if row != 0 and along != BRICK - 1:
-					c = _brick(along, row - 1, BRICK - 1, COURSE - 1)
-			else:
-				var course := cx / COURSE
-				var u := y - FRAME + course * BRICK / 2
-				var along := posmod(u, BRICK)
-				var row := cx % COURSE
-				if row != 0 and along != BRICK - 1:
-					c = _brick(row - 1, along, COURSE - 1, BRICK - 1)
-			# the inner course as drawn; the outer one fades into the dark
-			var depth := maxi(FRAME - mini(x, w - 1 - x), FRAME - mini(y, h - 1 - y))  # 1 next to the room
-			if depth > COURSE + 1:
-				c = BG.lerp(c, 1.0 - 0.85 * (depth - COURSE - 1) / COURSE)
-			img.set_pixel(x, y, c)
+			# tiles run along the top and bottom from the left, down the sides from the top
+			var lx := x
+			var ly := y if y < FRAME else y - (h - FRAME)
+			var n := x / FRAME
+			if not end:
+				lx = x if x < FRAME else x - (w - FRAME)
+				ly = y
+				n = y / FRAME + int(x >= FRAME)
+			# every other tile has its bricks shifted, as in Hunt2's second variant
+			var ch := WALL_TILE[ly % FRAME][(lx % FRAME + 4 * (n % 2)) % FRAME]
+			img.set_pixel(x, y, WALL_COLOURS[ch])
 	return img
-
-
-## The pixel at i, j of a brick w by h: only its edges show, the inside is the
-## dark. The top and left are lit, brightest at the corner and fading into the
-## dark away from it; a faint outline round the bottom right corner.
-static func _brick(i: int, j: int, w: int, h: int) -> Color:
-	var n := maxi(w, h)
-	if i == 0 or j == 0:
-		var d := i + j
-		if d <= 1:
-			return STONE_LIT[0]
-		if d <= n / 3:
-			return STONE_LIT[1]
-		if d <= n * 2 / 3:
-			return STONE_LIT[2]
-		return BG
-	if (i == w - 1 or j == h - 1) and (w - 1 - i) + (h - 1 - j) <= n / 3:
-		return STONE_EDGE
-	return BG
 
 
 const BONFIRE := 12  ## bonfire image half size
