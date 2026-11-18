@@ -141,11 +141,16 @@ Like Stoneshard: each piece of gear brings its own moves.
     the combo bonuses (+0/+10/+20%, 53 against the boss); it's the turn's
     attack, and then no block or dodge until your next turn, only Take the
     hit. 5 stamina in the Stamina mode (PLACEHOLDER).
-  - Claymore and bow: to decide.
+  - Claymore: Sweep (2026-11-18): hits the 3 hexes round you, centred on the
+    one you tap. 35 damage (PLACEHOLDER; it'll matter more with groups).
+  - Bow: Aimed shot (2026-11-18): a harder shot (50, PLACEHOLDER) that goes
+    through the boss's block; uses an arrow.
+  - Every skill sits out 1 turn after use, so every other turn (2026-11-18).
+    Stamina mode costs: combo 5, sweep 3, aimed shot 4 (PLACEHOLDER).
 - Shield: a better block (maybe its own slot; not with two-handed weapons).
 - Armour: the dodge. Heavy armour keeps a dodge but with harder timing, a
   shorter dodge bar (agreed 2026-11-18; built already as the faster bar).
-- Open: claymore and bow skills. Shield its own slot?
+- Open: shield its own slot?
 
 ## Menus (agreed 2026-11-17)
 

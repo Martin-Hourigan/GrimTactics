@@ -457,7 +457,41 @@ static func run() -> int:
 		f.queue = []
 		f.step()
 		check(f.phase == "hero" and not f.exposed, "%s: back next turn" % m)
-	check(Fight.new("claymore", "light", 1).skills().is_empty(), "only the longsword has it")
+	f = Fight.new("longsword", "light", 1, "", "one")
+	f.facing = 0
+	f.hero = f.boss + Fight.DIRS[3]
+	f.combo_attack()
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(not f.can_skill("combo") and f.waiting("combo"), "the next turn it sits out")
+	f.end_turn()
+	f.queue = []
+	f.step()
+	check(f.can_skill("combo"), "the turn after it's back")
+
+	print("claymore sweep")
+	f = Fight.new("claymore", "light", 1, "", "one")
+	f.facing = 0
+	f.hero = f.boss + Fight.DIRS[3]  # the boss is in direction 0 from the hero
+	check(f.sweep_aims() == [5, 0, 1] or (f.sweep_aims().size() == 3 and 0 in f.sweep_aims()), "a sweep catches the boss centred on it or either side")
+	check(f.sweep_hexes(1).has(f.boss) and not f.sweep_hexes(3).has(f.boss), "the 3 hexes round the hero")
+	var hp3 := f.boss_hp
+	f.sweep(1)
+	check(f.boss_hp == hp3 - (Fight.SKILLS.sweep.dmg - Fight.BOSS_BLOCK) and f.attacked, "it hits, and it's the turn's attack")
+	check(f.waiting("sweep"), "then it sits out a turn")
+
+	print("bow aimed shot")
+	f = Fight.new("bow", "light", 1, "", "one")
+	f.facing = 0
+	f.hero = f.boss + Fight.DIRS[3] * 3
+	hp3 = f.boss_hp
+	f.aimed_shot()
+	check(f.boss_hp == hp3 - Fight.SKILLS.aimed.dmg, "goes through the boss's block")
+	check(f.arrows == Fight.ARROWS - 1, "uses an arrow")
+	f = Fight.new("bow", "light", 1, "", "one")
+	f.arrows = 0
+	check(not f.can_skill("aimed"), "no arrows, no aimed shot")
 
 	print("whole fights")
 	var ended := 0

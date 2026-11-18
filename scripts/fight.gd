@@ -38,19 +38,26 @@ const WEAPONS := {
 		{"label": "Light attack", "st": 2, "dmg": 25, "pace": "slow"},
 		{"label": "Heavy attack", "st": 3, "dmg": 45, "pace": "fast"},
 	]},
-	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "acts": [
+	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "skills": ["sweep"], "acts": [
 		{"label": "Light attack", "st": 2, "dmg": 35, "pace": "mid"},
 		{"label": "Heavy attack", "st": 4, "dmg": 70, "pace": "fast"},
 	]},
-	"bow": {"label": "Bow", "block": 0, "speed": 8, "range": [1, 2 * ROOM], "arrows": true, "acts": [
+	"bow": {"label": "Bow", "block": 0, "speed": 8, "range": [1, 2 * ROOM], "arrows": true, "skills": ["aimed"], "acts": [
 		{"label": "Light attack", "st": 3, "dmg": 40, "pace": "mid"},
 	]},
 }
+## Every skill sits out SKILL_WAIT turns after it's used.
 ## combo: the light attack hits times in a row with the combo bonuses, and
-## then the hero can't block or dodge until their next turn (PLACEHOLDER cost).
+##   then the hero can't block or dodge until their next turn.
+## sweep: hits the 3 hexes round the hero centred on the one picked.
+## aimed: a harder shot that goes through the boss's block (pierce).
+## (st, dmg: PLACEHOLDER)
 const SKILLS := {
 	"combo": {"label": "Combo attack", "st": 5, "hits": 3},
+	"sweep": {"label": "Sweep", "st": 3, "dmg": 35},
+	"aimed": {"label": "Aimed shot", "st": 4, "dmg": 50, "pierce": true},
 }
+const SKILL_WAIT := 1
 const ARROWS := 10  ## arrows for the fight (later: from leaving the bonfire)
 ## block: damage taken off each blocked hit. bar: how long the dodge bar takes to fill (x)
 const ARMOURS := {
@@ -98,6 +105,8 @@ var attacked := false
 var arrows := 0  ## arrows left; only given when a bow is taken
 var hits := 0  ## hits in a row this turn without moving
 var moved := 0  ## hexes moved this turn
+var turn_no := 0  ## the hero's turns so far
+var ready_at := {}  ## skill -> the hero turn it can be used again
 var exposed := false  ## used a skill that leaves no block or dodge until the next turn
 var pace := "slow"  ## the dodge bar after this turn's attack, without stamina
 var hero_wait := 0.0  ## turn order: the one with less wait goes next
@@ -345,7 +354,64 @@ func skills() -> Array:
 
 func can_skill(key: String) -> bool:
 	var paid: bool = stamina >= SKILLS[key].st if uses_stamina() else not attacked
-	return phase == "hero" and key in skills() and dist(hero, boss) == 1 and paid
+	var d := dist(hero, boss)
+	var near: bool = d >= reach()[0] and d <= reach()[1]
+	if key == "aimed":
+		near = near and arrows > 0
+	return phase == "hero" and key in skills() and near and paid and not waiting(key)
+
+
+## Whether skill key is sitting out this turn.
+func waiting(key: String) -> bool:
+	return turn_no < ready_at.get(key, 0)
+
+
+## Pay for skill key and start its wait.
+func _use_skill(key: String) -> void:
+	if uses_stamina():
+		stamina -= SKILLS[key].st
+	attacked = true
+	ready_at[key] = turn_no + SKILL_WAIT + 1
+	hits = 0
+
+
+## A skill's own damage at hex at: no combo bonus; pierce skips the boss's block.
+func skill_damage(key: String, at := Vector2i(-99, -99)) -> int:
+	if at == Vector2i(-99, -99):
+		at = hero
+	var s: Dictionary = SKILLS[key]
+	return maxi(0, s.dmg + (WEAK_BONUS if weak_at(at) else 0) - (0 if s.get("pierce", false) else BOSS_BLOCK))
+
+
+## The 3 hexes a sweep centred on the hex in direction i hits.
+func sweep_hexes(i: int) -> Array[Vector2i]:
+	return [hero + DIRS[posmod(i - 1, 6)], hero + DIRS[i], hero + DIRS[posmod(i + 1, 6)]]
+
+
+## The directions a sweep can be centred on to catch the boss.
+func sweep_aims() -> Array[int]:
+	var out: Array[int] = []
+	for i in 6:
+		if boss in sweep_hexes(i):
+			out.append(i)
+	return out
+
+
+func sweep(i: int) -> void:
+	if not can_skill("sweep") or not i in sweep_aims():
+		return
+	_use_skill("sweep")
+	pace = "mid"
+	_hit(skill_damage("sweep"))
+
+
+func aimed_shot() -> void:
+	if not can_skill("aimed"):
+		return
+	_use_skill("aimed")
+	pace = "mid"
+	arrows -= 1
+	_hit(skill_damage("aimed"))
 
 
 ## What the combo attack would do from here: each hit with its combo bonus.
@@ -359,16 +425,13 @@ func combo_damage() -> int:
 func combo_attack() -> void:
 	if not can_skill("combo"):
 		return
-	if uses_stamina():
-		stamina -= SKILLS.combo.st
-	attacked = true
+	_use_skill("combo")
 	exposed = true
 	pace = "fast"
 	for k in SKILLS.combo.hits:
 		if phase != "hero":
 			return
 		_hit(_damage(0, hero, COMBO[k % COMBO.size()]), k)
-	hits = 0
 
 
 func _strike(i: int, dmg: int) -> void:
@@ -463,6 +526,7 @@ func turn_order(n: int) -> Array[String]:
 
 func _hero_turn() -> void:
 	phase = "hero"
+	turn_no += 1
 	if uses_stamina():
 		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
 	attacked = false
