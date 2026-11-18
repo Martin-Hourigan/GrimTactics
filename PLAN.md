@@ -115,6 +115,9 @@ with the phone), taps act as clicks, an Android export preset (arm64 APK,
 debug-signed, build/GrimTactics.apk).
 
 ## Three modes to try (2026-11-18; my guesses, Martin to change)
+Martin is focusing on One attack (2026-11-18); the other two are kept up to date.
+The boss hits 20% harder (2026-11-18, for now): Lunge 60, Sweep 48, Turn and
+cut 72, Overhead 96, Shield bash 36, Thrust 60, Leap 72, Flurry 48.
 Play opens a mode list (names PLACEHOLDER), then boss and equipment.
 - **Stamina:** the game as it was, but the stamina left after paying for a
   dodge sets the dodge bar: 5-6 slow, 3-4 middle, 1-2 fast (times 1.2 / 1.0 /
@@ -133,11 +136,16 @@ Play opens a mode list (names PLACEHOLDER), then boss and equipment.
 ## Skills come from equipment (being discussed 2026-11-18)
 Like Stoneshard: each piece of gear brings its own moves.
 - Every melee weapon: light, heavy and running attack (agreed 2026-11-18).
-  Plus each weapon's own skill: longsword, claymore and bow to decide.
+  Plus each weapon's own skill, in Skills:
+  - Longsword: Combo attack (2026-11-18): three light hits in one go with
+    the combo bonuses (+0/+10/+20%, 53 against the boss); it's the turn's
+    attack, and then no block or dodge until your next turn, only Take the
+    hit. 5 stamina in the Stamina mode (PLACEHOLDER).
+  - Claymore and bow: to decide.
 - Shield: a better block (maybe its own slot; not with two-handed weapons).
 - Armour: the dodge. Heavy armour keeps a dodge but with harder timing, a
   shorter dodge bar (agreed 2026-11-18; built already as the faster bar).
-- Open: each weapon's skill. Shield its own slot?
+- Open: claymore and bow skills. Shield its own slot?
 
 ## Menus (agreed 2026-11-17)
 

@@ -40,7 +40,7 @@ var flash_hexes: Array[Vector2i] = []
 var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
 var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
-var menu := ""  ## the hero's menu: "" (top), attack, items (skills: none yet)
+var menu := ""  ## the hero's menu: "" (top), attack, skills, items
 var aiming_run := false  ## picking the hex for the running attack
 var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
@@ -221,7 +221,7 @@ func _take_events() -> void:
 	for e in fight.events:
 		match e.type:
 			"hit_boss":
-				_popup(str(e.dmg), hex_pos(fight.boss) + Vector2(0, -12), TEXT)
+				_popup(str(e.dmg), hex_pos(fight.boss) + Vector2([0, -12, 12][e.k % 3], -12 - e.k * 5), TEXT)
 				if Fight.dist(e.from, fight.boss) > 1:
 					arrow = {"from": hex_pos(e.from), "to": hex_pos(fight.boss), "t": 0.0}
 			"hit_hero":
@@ -476,6 +476,8 @@ func _hero_tap(p: Vector2) -> void:
 		"":
 			if _button(0).has_point(p):
 				menu = "attack"
+			elif _button(1).has_point(p) and not fight.skills().is_empty():
+				menu = "skills"
 			elif _button(2).has_point(p):
 				menu = "items"
 			elif _button(3).has_point(p):
@@ -488,6 +490,9 @@ func _hero_tap(p: Vector2) -> void:
 					fight.attack(i)
 			if _button(2).has_point(p) and fight.can_run_attack():
 				aiming_run = true
+		"skills":
+			if _button(0).has_point(p) and "combo" in fight.skills():
+				fight.combo_attack()
 		"items":
 			if _button(0).has_point(p):
 				fight.flask()
@@ -846,7 +851,7 @@ func _draw_menu() -> void:
 	match menu:
 		"":
 			_entry(0, "Attack", true, 0, "", true)
-			_entry(1, "Skills", false, 0, "", true)  # each weapon's own skill, to come
+			_entry(1, "Skills", not fight.skills().is_empty(), 0, "", true)
 			_entry(2, "Items", true, 0, "", true)
 			_entry(3, "Swap: " + Fight.WEAPONS[fight.spare].label, fight.can_swap(), Fight.SWAP_COST if st else 0, "", false, false, 160)
 			_entry(4, "End turn", true)
@@ -856,6 +861,9 @@ func _draw_menu() -> void:
 				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)))
 			if fight.has_run():
 				_entry(2, "Running attack", fight.can_run_attack(), acts[0].st if st else 0, "", false, aiming_run)
+		"skills":
+			if "combo" in fight.skills():
+				_entry(0, Fight.SKILLS.combo.label, fight.can_skill("combo"), Fight.SKILLS.combo.st if st else 0, str(fight.combo_damage()))
 		"items":
 			_entry(0, "Flask", fight.can_flask(), 0, "%d left" % fight.flasks)
 	if menu != "":

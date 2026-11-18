@@ -432,6 +432,33 @@ static func run() -> int:
 	check(two, "sometimes the hero goes twice in a row")
 	check(f.stamina == Fight.STAMINA, "no stamina used")
 
+	print("the longsword combo attack")
+	for m in ["one", "stamina"]:
+		f = Fight.new("longsword", "light", 1, "claymore", m)
+		f.facing = 0
+		f.hero = f.boss + Fight.DIRS[3]  # behind, not a weak arc for an empty card
+		base = Fight.WEAPONS.longsword.acts[0].dmg
+		var want := (base - Fight.BOSS_BLOCK) + (roundi(base * 1.1) - Fight.BOSS_BLOCK) + (roundi(base * 1.2) - Fight.BOSS_BLOCK)
+		check(f.can_skill("combo") and f.combo_damage() == want, "%s: three light hits with the combo bonuses" % m)
+		var hp2 := f.boss_hp
+		f.combo_attack()
+		check(f.boss_hp == hp2 - want, "%s: they all land" % m)
+		if m == "one":
+			check(not f.can_attack(0) and f.stamina == Fight.STAMINA, "one: it's the turn's attack, no stamina")
+		else:
+			check(f.stamina == Fight.STAMINA - Fight.SKILLS.combo.st, "stamina: it costs 5")
+		f.end_turn()
+		f.phase = "boss"
+		f.card = {"name": "test", "dodge": 1, "weak": []}
+		f.queue = [{"attack": 10, "range": 1}]
+		f.step()
+		check(f.phase == "defend" and not f.can_block() and not f.can_dodge(), "%s: then no block or dodge" % m)
+		f.take_hit()
+		f.queue = []
+		f.step()
+		check(f.phase == "hero" and not f.exposed, "%s: back next turn" % m)
+	check(Fight.new("claymore", "light", 1).skills().is_empty(), "only the longsword has it")
+
 	print("whole fights")
 	var ended := 0
 	for s in 20:

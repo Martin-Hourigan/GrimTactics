@@ -32,8 +32,9 @@ const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a
 const RUN_STEPS := 2  ## the running attack runs at least this many hexes, then hits
 const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
 ## pace: the dodge bar after that attack, without stamina. speed: for the turn order.
+## skills: the weapon's own skills, from SKILLS.
 const WEAPONS := {
-	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "acts": [
+	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "skills": ["combo"], "acts": [
 		{"label": "Light attack", "st": 2, "dmg": 25, "pace": "slow"},
 		{"label": "Heavy attack", "st": 3, "dmg": 45, "pace": "fast"},
 	]},
@@ -44,6 +45,11 @@ const WEAPONS := {
 	"bow": {"label": "Bow", "block": 0, "speed": 8, "range": [1, 2 * ROOM], "arrows": true, "acts": [
 		{"label": "Light attack", "st": 3, "dmg": 40, "pace": "mid"},
 	]},
+}
+## combo: the light attack hits times in a row with the combo bonuses, and
+## then the hero can't block or dodge until their next turn (PLACEHOLDER cost).
+const SKILLS := {
+	"combo": {"label": "Combo attack", "st": 5, "hits": 3},
 }
 const ARROWS := 10  ## arrows for the fight (later: from leaving the bonfire)
 ## block: damage taken off each blocked hit. bar: how long the dodge bar takes to fill (x)
@@ -67,16 +73,16 @@ const DECK_SIZE := 4
 ##     heavy attacks cost more stamina to block.
 ## dodge = how hard the dodge check is (1-3). weak = arcs that take extra damage.
 const CARDS := [
-	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"aim": [1, 0]}, {"attack": 50, "range": 1, "arcs": ["front"]}]},
-	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"aim": [1, 0]}, {"attack": 40, "range": 1, "arcs": ["front", "left", "right"]}]},
-	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 60, "range": 1, "arcs": ["front"], "push": true, "heavy": true}]},
-	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 80, "range": 1, "arcs": ["front"], "heavy": true}]},
-	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"aim": [2, 1]}, {"attack": 30, "range": 1, "arcs": ["front"], "push": true}]},
-	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"aim": [1, 0]}, {"attack": 50, "range": 2, "arcs": ["front"]}]},
+	{"name": "Lunge", "dodge": 1, "weak": ["back"], "steps": [{"move": 2}, {"aim": [1, 0]}, {"attack": 60, "range": 1, "arcs": ["front"]}]},
+	{"name": "Sweep", "dodge": 1, "weak": ["back"], "steps": [{"aim": [1, 0]}, {"attack": 48, "range": 1, "arcs": ["front", "left", "right"]}]},
+	{"name": "Turn and cut", "dodge": 2, "weak": ["left", "right"], "steps": [{"turn": 3}, {"aim": [1, 0]}, {"attack": 72, "range": 1, "arcs": ["front"], "push": true, "heavy": true}]},
+	{"name": "Overhead", "dodge": 1, "weak": ["left", "right"], "steps": [{"aim": [1, 1]}, {"attack": 96, "range": 1, "arcs": ["front"], "heavy": true}]},
+	{"name": "Shield bash", "dodge": 2, "weak": ["back"], "steps": [{"aim": [2, 1]}, {"attack": 36, "range": 1, "arcs": ["front"], "push": true}]},
+	{"name": "Step back, thrust", "dodge": 2, "weak": ["left"], "steps": [{"move": -1}, {"aim": [1, 0]}, {"attack": 60, "range": 2, "arcs": ["front"]}]},
 ]
 const HEAT_CARDS := [
-	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 60, "range": 1, "arcs": ["front", "left", "right", "back"], "heavy": true}]},
-	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 40, "range": 1, "arcs": ["front"]}]},
+	{"name": "Leap", "dodge": 2, "weak": ["back"], "steps": [{"leap": true}, {"attack": 72, "range": 1, "arcs": ["front", "left", "right", "back"], "heavy": true}]},
+	{"name": "Flurry", "dodge": 3, "weak": ["back"], "repeat": 2, "steps": [{"aim": [1, 1]}, {"attack": 48, "range": 1, "arcs": ["front"]}]},
 ]
 
 var mode := "stamina"
@@ -92,6 +98,7 @@ var attacked := false
 var arrows := 0  ## arrows left; only given when a bow is taken
 var hits := 0  ## hits in a row this turn without moving
 var moved := 0  ## hexes moved this turn
+var exposed := false  ## used a skill that leaves no block or dodge until the next turn
 var pace := "slow"  ## the dodge bar after this turn's attack, without stamina
 var hero_wait := 0.0  ## turn order: the one with less wait goes next
 var boss_wait := 0.0
@@ -331,6 +338,39 @@ func run_attack(c: Vector2i) -> void:
 	hits = 1
 
 
+## The weapon's own skills.
+func skills() -> Array:
+	return WEAPONS[weapon].get("skills", [])
+
+
+func can_skill(key: String) -> bool:
+	var paid: bool = stamina >= SKILLS[key].st if uses_stamina() else not attacked
+	return phase == "hero" and key in skills() and dist(hero, boss) == 1 and paid
+
+
+## What the combo attack would do from here: each hit with its combo bonus.
+func combo_damage() -> int:
+	var total := 0
+	for k in SKILLS.combo.hits:
+		total += _damage(0, hero, COMBO[k % COMBO.size()])
+	return total
+
+
+func combo_attack() -> void:
+	if not can_skill("combo"):
+		return
+	if uses_stamina():
+		stamina -= SKILLS.combo.st
+	attacked = true
+	exposed = true
+	pace = "fast"
+	for k in SKILLS.combo.hits:
+		if phase != "hero":
+			return
+		_hit(_damage(0, hero, COMBO[k % COMBO.size()]), k)
+	hits = 0
+
+
 func _strike(i: int, dmg: int) -> void:
 	if uses_stamina():
 		stamina -= WEAPONS[weapon].acts[i].st
@@ -338,8 +378,13 @@ func _strike(i: int, dmg: int) -> void:
 	pace = WEAPONS[weapon].acts[i].pace
 	if WEAPONS[weapon].has("arrows"):
 		arrows -= 1
+	_hit(dmg)
+
+
+## k: which hit of a string this is, so the numbers don't sit on each other.
+func _hit(dmg: int, k := 0) -> void:
 	boss_hp = maxi(0, boss_hp - dmg)
-	events.append({"type": "hit_boss", "dmg": dmg, "from": hero})
+	events.append({"type": "hit_boss", "dmg": dmg, "from": hero, "k": k})
 	if boss_hp <= 0:
 		phase = "win"
 		return
@@ -421,6 +466,7 @@ func _hero_turn() -> void:
 	if uses_stamina():
 		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
 	attacked = false
+	exposed = false
 	hits = 0
 	moved = 0
 	pace = "slow"
@@ -601,7 +647,7 @@ func block_cost() -> int:
 
 
 func can_block() -> bool:
-	return phase == "defend" and (stamina >= block_cost() or not uses_stamina())
+	return phase == "defend" and not exposed and (stamina >= block_cost() or not uses_stamina())
 
 
 func defend_block() -> void:
@@ -626,7 +672,7 @@ func take_hit() -> void:
 
 
 func can_dodge() -> bool:
-	return phase == "defend" and (stamina >= dodge_cost() or not uses_stamina())
+	return phase == "defend" and not exposed and (stamina >= dodge_cost() or not uses_stamina())
 
 
 ## What the next dodge this boss turn costs: 1, then 2, then 3...
