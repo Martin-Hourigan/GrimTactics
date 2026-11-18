@@ -120,7 +120,7 @@ Play opens a mode list (names PLACEHOLDER), then boss and equipment.
   dodge sets the dodge bar: 5-6 slow, 3-4 middle, 1-2 fast (times 1.2 / 1.0 /
   0.8, on top of the boss card's difficulty and the armour).
 - **One attack:** no stamina. Move up to 3 hexes and attack once a turn,
-  before or after moving; running attack still after 2 hexes. Block and dodge
+  before or after moving; the running attack needs 2 of the 3 hexes. Block and dodge
   always there. The flask takes the turn's attack; swapping is free. No combos.
   The dodge bar is set by this turn's attack: longsword light slow, claymore
   light and bow middle, any heavy fast, no attack slow.
@@ -193,8 +193,11 @@ decide what you can use. No separate spell bar.
   anywhere in the room, right next to the boss too (changed 2026-11-18). 10 arrows a fight
   (later: 10 from leaving the bonfire). Weak arcs and combos count; no
   running attack; no block.
-- The running attack replaces the light attack after 2 hexes moved
-  since your last attack that turn; same stamina.
+- The running attack is its own skill (2026-11-18), in Skills: pick a hex
+  next to the boss at least 2 hexes away; the hero runs there and hits
+  (light attack +20%, costs the steps plus the light attack's stamina).
+- Hero menu (2026-11-18): Attack > (light, heavy), Skills > (running
+  attack), Items > (flask), Swap, End turn. Back returns to the top.
 - Light armour: block 10. Heavy: block 30, the dodge bar fills in 0.75 of
   the time.
 - Dodge check: the bar fills in 1.3 / 1.1 / 0.9 s (dodge difficulty 1-3),

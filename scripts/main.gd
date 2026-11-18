@@ -40,6 +40,8 @@ var flash_hexes: Array[Vector2i] = []
 var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
 var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
+var menu := ""  ## the hero's menu: "" (top), attack, skills, items
+var aiming_run := false  ## picking the hex for the running attack
 var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
 var shot_at := 60
@@ -82,11 +84,18 @@ func _ready() -> void:
 	var mi := args.find("--mode")
 	if mi >= 0 and mi + 1 < args.size():
 		mode = args[mi + 1]
+	var mn := args.find("--menu")
+	var shot_menu: String = args[mn + 1] if mn >= 0 and mn + 1 < args.size() else ""
 	var wi := args.find("--weapons")
 	if wi >= 0 and wi + 1 < args.size():
 		weapons = Array(args[wi + 1].split(","))
 	if "--fight" in args or auto > 0:
 		start()
+	if shot_menu != "":
+		menu = shot_menu.trim_suffix("-aim")
+		aiming_run = shot_menu.ends_with("-aim")
+		fight.hero = fight.boss + Fight.DIRS[5] * 3
+		cam = _cam_target()
 	font = ThemeDB.fallback_font
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS) == OK:
@@ -144,6 +153,8 @@ func start() -> void:
 	popups.clear()
 	check = {}
 	picking_dodge = false
+	menu = ""
+	aiming_run = false
 	cam = _cam_target()
 	paused = false
 	screen = "fight"
@@ -159,6 +170,9 @@ func _process(delta: float) -> void:
 	update_note = maxf(0.0, update_note - delta)
 	if screen == "fight":
 		_tick(delta)
+		if fight.phase != "hero":
+			menu = ""
+			aiming_run = false
 		cam = cam.lerp(_cam_target(), minf(1.0, delta * 10.0))
 		if cam.distance_to(_cam_target()) < 0.5:
 			cam = _cam_target()
@@ -451,23 +465,47 @@ func _item_label(key: String) -> String:
 
 
 func _hero_tap(p: Vector2) -> void:
-	var acts: Array = Fight.WEAPONS[fight.weapon].acts
-	for i in acts.size():
-		if _button(i).has_point(p):
-			fight.attack(i)
-			return
-	if _button(2).has_point(p):
-		fight.flask()
-		return
-	if _button(3).has_point(p):
-		fight.end_turn()
-		return
-	if _button(4).has_point(p):
-		fight.swap()
-		return
 	var c: Variant = _hex_at(p)
-	if c != null and fight.can_move(c):
+	if aiming_run:
+		aiming_run = false
+		if c != null and c in fight.run_hexes():
+			fight.run_attack(c)
+			return
+	var back := menu != "" and _button(4).has_point(p)
+	match menu:
+		"":
+			if _button(0).has_point(p):
+				menu = "attack"
+			elif _button(1).has_point(p) and fight.has_run():
+				menu = "skills"
+			elif _button(2).has_point(p):
+				menu = "items"
+			elif _button(3).has_point(p):
+				fight.swap()
+			elif _button(4).has_point(p):
+				fight.end_turn()
+		"attack":
+			for i in Fight.WEAPONS[fight.weapon].acts.size():
+				if _button(i).has_point(p):
+					fight.attack(i)
+		"skills":
+			if _button(0).has_point(p) and fight.can_run_attack():
+				aiming_run = true
+		"items":
+			if _button(0).has_point(p):
+				fight.flask()
+	if back:
+		menu = ""
+		return
+	if c != null and fight.can_move(c) and _hex_free(p):
 		fight.move(c)
+
+
+## Whether p is on the room and not on the panel or the bar along the top.
+func _hex_free(p: Vector2) -> bool:
+	if p.y < 32:
+		return false
+	return p.y < _po().y - 6 if portrait else p.x < _po().x - 6
 
 
 func _defend_tap(p: Vector2) -> void:
@@ -714,6 +752,8 @@ func _draw_room() -> void:
 			col = HEX_HIT
 		elif c in dodging:
 			col = HEX_REACH
+		elif aiming_run:
+			col = HEX_REACH if c in fight.run_hexes() else HEX
 		elif fight.phase == "hero" and fight.can_move(c):
 			col = HEX_REACH
 		if c != fight.boss and fight.phase == "hero" and fight.weak_at(c) and not c in hitting:
@@ -723,8 +763,10 @@ func _draw_room() -> void:
 			var edge := _hex_poly(hex_pos(c), HR - 1.0)
 			edge.append(edge[0])
 			draw_polyline(edge, HIT_EDGE, 1.0)
+		if aiming_run and c in fight.run_hexes():
+			_text(str(fight.run_damage(c)), hex_pos(c) + Vector2(0, 3), TEXT, true)
 		# stamina a move there costs
-		if fight.phase == "hero" and fight.can_move(c):
+		elif fight.phase == "hero" and fight.can_move(c):
 			var n := fight.move_cost(c)
 			var base := hex_pos(c) + Vector2(0, 8)
 			for k in n:
@@ -798,25 +840,45 @@ func _draw_panel() -> void:
 	if fight.arrows > 0 or Fight.WEAPONS[fight.weapon].has("arrows") or Fight.WEAPONS[fight.spare].has("arrows"):
 		_text("arrows %d" % fight.arrows, o + Vector2(120, 87 + y), TEXT if fight.arrows > 0 else DIM)
 	if fight.phase == "hero":
-		var acts: Array = Fight.WEAPONS[fight.weapon].acts
-		for i in acts.size():
-			var a: Dictionary = acts[i]
-			var r := _button(i)
-			var ok := fight.can_attack(i)
-			_box(r, "", ok)
-			var c := TEXT if ok else DIM
-			_text(fight.attack_label(i), r.position + Vector2(6, 14), c)
-			for k in (a.st if fight.uses_stamina() else 0):
-				draw_rect(Rect2(r.position + Vector2(104 + k * 5, 9), Vector2(3, 3)), c)
-			_text(str(fight.attack_damage(i)), r.position + Vector2(140, 14), c)
-		_box(_button(2), "Flask", fight.can_flask())
-		_box(_button(3), "End turn", true)
-		var sr := _button(4)
-		var sc := TEXT if fight.can_swap() else DIM
-		_box(sr, "", fight.can_swap())
-		_text("Swap: " + Fight.WEAPONS[fight.spare].label, sr.position + Vector2(6, 14), sc)
-		for k in (Fight.SWAP_COST if fight.uses_stamina() else 0):
-			draw_rect(Rect2(sr.position + Vector2(160 + k * 5, 9), Vector2(3, 3)), sc)
+		_draw_menu()
+
+
+## The hero's menu: Attack, Skills and Items open their own lists.
+func _draw_menu() -> void:
+	var st := fight.uses_stamina()
+	match menu:
+		"":
+			_entry(0, "Attack", true, 0, "", true)
+			_entry(1, "Skills", fight.has_run(), 0, "", true)
+			_entry(2, "Items", true, 0, "", true)
+			_entry(3, "Swap: " + Fight.WEAPONS[fight.spare].label, fight.can_swap(), Fight.SWAP_COST if st else 0, "", false, false, 160)
+			_entry(4, "End turn", true)
+		"attack":
+			var acts: Array = Fight.WEAPONS[fight.weapon].acts
+			for i in acts.size():
+				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)))
+		"skills":
+			var a: Dictionary = Fight.WEAPONS[fight.weapon].acts[0]
+			_entry(0, "Running attack", fight.can_run_attack(), a.st if st else 0, "", false, aiming_run)
+		"items":
+			_entry(0, "Flask", fight.can_flask(), 0, "%d left" % fight.flasks)
+	if menu != "":
+		_entry(4, "Back", true)
+
+
+## One menu button: label, stamina pips, a number on the right, and > if it
+## opens a list.
+func _entry(i: int, label: String, ok: bool, pips := 0, right := "", opens := false, picked := false, pip_x := 104) -> void:
+	var r := _button(i)
+	var c := TEXT if ok else DIM
+	_box(r, "", ok, picked)
+	_text(label, r.position + Vector2(6, 14), c)
+	for k in pips:
+		draw_rect(Rect2(r.position + Vector2(pip_x + k * 5, 9), Vector2(3, 3)), c)
+	if right != "":
+		_text(right, r.position + Vector2(140, 14), c)
+	if opens:
+		_text(">", r.position + Vector2(r.size.x - 12, 14), c)
 
 
 func _draw_defend() -> void:

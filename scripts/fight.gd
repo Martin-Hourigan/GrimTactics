@@ -29,17 +29,17 @@ const HEAVY_BLOCK_COST := 3  ## blocking one of its heavy attacks
 const SWAP_COST := 1  ## swapping to the other weapon set
 const WEAK_BONUS := 10  ## extra damage from a weak arc
 const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; then it starts again
-const RUN_STEPS := 2  ## hexes moved since the last attack that turn the first attack into a running one
+const RUN_STEPS := 2  ## the running attack runs at least this many hexes, then hits
 const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
-## Each weapon's first attack becomes its "run" attack after a run.
+## run: the weapon has the running attack (its light attack's cost and damage).
 ## pace: the dodge bar after that attack, without stamina. speed: for the turn order.
 const WEAPONS := {
-	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "acts": [
-		{"label": "Light attack", "st": 2, "dmg": 25, "run": "Running attack", "pace": "slow"},
+	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "run": true, "acts": [
+		{"label": "Light attack", "st": 2, "dmg": 25, "pace": "slow"},
 		{"label": "Heavy attack", "st": 3, "dmg": 45, "pace": "fast"},
 	]},
-	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "acts": [
-		{"label": "Light attack", "st": 2, "dmg": 35, "run": "Running attack", "pace": "mid"},
+	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "run": true, "acts": [
+		{"label": "Light attack", "st": 2, "dmg": 35, "pace": "mid"},
 		{"label": "Heavy attack", "st": 4, "dmg": 70, "pace": "fast"},
 	]},
 	"bow": {"label": "Bow", "block": 0, "speed": 8, "range": [1, 2 * ROOM], "arrows": true, "acts": [
@@ -92,7 +92,6 @@ var hero := Vector2i(0, 3)
 var attacked := false
 var arrows := 0  ## arrows left; only given when a bow is taken
 var hits := 0  ## hits in a row this turn without moving
-var run := 0  ## hexes moved since the last attack this turn
 var moved := 0  ## hexes moved this turn
 var pace := "slow"  ## the dodge bar after this turn's attack, without stamina
 var hero_wait := 0.0  ## turn order: the one with less wait goes next
@@ -233,7 +232,6 @@ func move(c: Vector2i) -> void:
 	if uses_stamina():
 		stamina -= move_cost(c)
 	moved += steps(c)
-	run += steps(c)
 	hits = 0
 	hero = c
 
@@ -250,20 +248,12 @@ func weak_at(c: Vector2i) -> bool:
 	return false
 
 
-## Whether attack i would be a running attack now.
-func running(i: int) -> bool:
-	return WEAPONS[weapon].acts[i].has("run") and run >= RUN_STEPS
-
-
 func attack_label(i: int) -> String:
-	var a: Dictionary = WEAPONS[weapon].acts[i]
-	return a.run if running(i) else a.label
+	return WEAPONS[weapon].acts[i].label
 
 
-## The damage bonus attack i gets now: running, or its place in the combo.
-func attack_bonus(i: int) -> float:
-	if running(i):
-		return RUN_BONUS
+## The damage bonus attack i gets now: its place in the combo.
+func attack_bonus(_i := 0) -> float:
 	if not uses_stamina():
 		return 0.0  # one attack a turn, so no combos
 	return COMBO[hits % COMBO.size()]
@@ -271,8 +261,12 @@ func attack_bonus(i: int) -> float:
 
 ## The damage attack i does to the boss from where the hero stands now.
 func attack_damage(i: int) -> int:
-	var dmg: int = WEAPONS[weapon].acts[i].dmg + (WEAK_BONUS if weak() else 0)
-	return maxi(0, roundi(dmg * (1.0 + attack_bonus(i))) - BOSS_BLOCK)
+	return _damage(i, hero, attack_bonus(i))
+
+
+func _damage(i: int, at: Vector2i, bonus: float) -> int:
+	var dmg: int = WEAPONS[weapon].acts[i].dmg + (WEAK_BONUS if weak_at(at) else 0)
+	return maxi(0, roundi(dmg * (1.0 + bonus)) - BOSS_BLOCK)
 
 
 ## How near and how far the weapon in hand reaches, in hexes.
@@ -291,15 +285,59 @@ func can_attack(i: int) -> bool:
 func attack(i: int) -> void:
 	if not can_attack(i):
 		return
-	var dmg := attack_damage(i)
+	_strike(i, attack_damage(i))
+	hits += 1
+
+
+func has_run() -> bool:
+	return WEAPONS[weapon].get("run", false)
+
+
+## The hexes the running attack can run to: next to the boss, at least
+## RUN_STEPS away, and paid for (the run's steps plus the light attack).
+func run_hexes() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if phase != "hero" or not has_run() or (attacked and not uses_stamina()):
+		return out
+	for d in DIRS:
+		var c := boss + d
+		var n := steps(c)
+		if not open_hex(c) or n < RUN_STEPS:
+			continue
+		if (n + WEAPONS[weapon].acts[0].st <= stamina) if uses_stamina() else (n <= MOVES - moved):
+			out.append(c)
+	return out
+
+
+func can_run_attack() -> bool:
+	return not run_hexes().is_empty()
+
+
+## What the running attack would do ending at hex c.
+func run_damage(c: Vector2i) -> int:
+	return _damage(0, c, RUN_BONUS)
+
+
+## Run to c and hit: it counts as the 1st hit of a combo.
+func run_attack(c: Vector2i) -> void:
+	if not c in run_hexes():
+		return
+	var n := steps(c)
+	if uses_stamina():
+		stamina -= n
+	moved += n
+	hero = c
+	_strike(0, run_damage(c))
+	hits = 1
+
+
+func _strike(i: int, dmg: int) -> void:
 	if uses_stamina():
 		stamina -= WEAPONS[weapon].acts[i].st
 	attacked = true
 	pace = WEAPONS[weapon].acts[i].pace
 	if WEAPONS[weapon].has("arrows"):
 		arrows -= 1
-	hits = 1 if running(i) else hits + 1
-	run = 0
 	boss_hp = maxi(0, boss_hp - dmg)
 	events.append({"type": "hit_boss", "dmg": dmg, "from": hero})
 	if boss_hp <= 0:
@@ -384,7 +422,6 @@ func _hero_turn() -> void:
 		stamina = mini(STAMINA, stamina + STAMINA_BACK + (0 if attacked else REST_BONUS))
 	attacked = false
 	hits = 0
-	run = 0
 	moved = 0
 	pace = "slow"
 

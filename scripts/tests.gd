@@ -115,19 +115,31 @@ static func run() -> int:
 	check(dealt[3] == dealt[0] and dealt[4] == dealt[1], "after the third hit the combo starts again")
 	f.stamina = Fight.STAMINA
 	f.move(f.boss + Fight.DIRS[1])
-	check(f.attack_bonus(0) == 0.0 and not f.running(0), "a step breaks the combo, one step isn't a run")
+	check(f.attack_bonus(0) == 0.0, "a step breaks the combo")
 	f = Fight.new("longsword", "light", 1)
-	f.hero = f.boss + Fight.DIRS[3] * 3
-	f.move(f.boss + Fight.DIRS[3])
-	check(f.running(0) and not f.running(1), "two hexes moved turns the first attack into a running one")
-	check(f.attack_label(0) == "Running attack" and f.attack_damage(0) == roundi(base * 1.2) - Fight.BOSS_BLOCK, "running attack +20%")
-	f.attack(0)
-	check(not f.running(0) and f.attack_bonus(0) == 0.1, "after a running attack the next hit is the second in the combo")
+	f.facing = 0
+	f.hero = f.boss + Fight.DIRS[0]
+	check(not f.boss + Fight.DIRS[1] in f.run_hexes(), "the running attack needs a run of at least 2 hexes")
+	f.hero = f.boss + Fight.DIRS[0] * 3
+	var run_to := f.boss + Fight.DIRS[0]
+	check(run_to in f.run_hexes() and f.run_damage(run_to) == roundi(base * 1.2) - Fight.BOSS_BLOCK, "from 2 hexes off it can run in and hit, +20%")
+	var hp0 := f.boss_hp
+	f.run_attack(run_to)
+	check(f.hero == run_to and f.boss_hp == hp0 - f.run_damage(run_to), "it runs there and hits")
+	check(f.stamina == Fight.STAMINA - 2 - Fight.WEAPONS.longsword.acts[0].st, "paying for the steps and the light attack")
+	check(f.attack_bonus(0) == 0.1, "after a running attack the next hit is the second in the combo")
 	f.attack(0)
 	f.end_turn()
 	f.queue = []
 	f.step()
-	check(f.hits == 0 and f.run == 0, "a new turn starts a new combo")
+	check(f.hits == 0, "a new turn starts a new combo")
+	f = Fight.new("bow", "light", 1)
+	f.hero = f.boss + Fight.DIRS[0] * 3
+	check(not f.can_run_attack(), "no running attack with a bow")
+	f = Fight.new("claymore", "light", 1)
+	f.hero = f.boss + Fight.DIRS[0] * 3
+	f.stamina = 3
+	check(not f.can_run_attack(), "not without the stamina for the run and the hit")
 
 	print("behaviour deck")
 	f = Fight.new("longsword", "light", 3)
@@ -350,10 +362,13 @@ static func run() -> int:
 	f = Fight.new("longsword", "light", 1, "claymore", "one")
 	f.hero = f.boss + Fight.DIRS[0] * 3
 	f.facing = 0
+	check(f.can_run_attack(), "the running attack works without stamina")
+	f.moved = 2
+	check(not f.can_run_attack(), "but not with only 1 hex of the 3 left")
+	f.moved = 0
 	check(not f.can_move(Vector2i(-1, 3)) and f.can_move(f.boss + Fight.DIRS[1] * 3), "up to 3 hexes")
 	f.move(f.boss + Fight.DIRS[0])
 	check(f.stamina == Fight.STAMINA and f.moved == 2, "moving costs no stamina")
-	check(f.running(0), "two hexes still make a running attack")
 	f.attack(0)
 	check(not f.can_attack(0) and not f.can_attack(1), "then no more attacks this turn")
 	check(f.can_move(f.boss + Fight.DIRS[1]) and not f.can_move(f.boss + Fight.DIRS[0] * 3), "but the hex left to move")
