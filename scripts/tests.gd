@@ -510,6 +510,11 @@ static func run() -> int:
 	f = Fight.new("longsword", "light", 1, "claymore", "one", "keep")
 	check(f.phase == "explore" and f.can_rest(), "it starts out of a fight, next to the bonfire")
 	check(f.on_ground(Fight.KEEP_DOOR) and not f.on_ground(Fight.KEEP_DOOR + Vector2i(3, 0)), "walls round the rooms and the hallway")
+	var into := 0
+	for d in Fight.DIRS:
+		if f.on_ground(Fight.KEEP_BONFIRE_DOOR + d) and Fight.dist(Fight.KEEP_BONFIRE_DOOR + d, Fight.KEEP_BONFIRE) <= 2:
+			into += 1
+	check(into == 1 and not f.on_ground(Fight.KEEP_BONFIRE_DOOR + Fight.DIRS[0]) and not f.on_ground(Fight.KEEP_BONFIRE_DOOR + Fight.DIRS[3]), "a one-hex door into the bonfire room")
 	var way := f.path(f.hero, Fight.KEEP_DOOR + Vector2i(-1, 2))
 	check(not way.is_empty(), "a way from the bonfire up to the boss's door")
 	for c in way:

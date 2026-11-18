@@ -89,10 +89,11 @@ const FOE_ATTACKS := {
 	"shortsword": {"name": "Shortsword", "dmg": 25, "dodge": 1},
 }
 ## The keep's layout (PLACEHOLDER): the boss's room round 0,0, a door, the
-## hallway, and the bonfire room at the bottom. The hallway runs along a hex
+## hallway, another door, and the bonfire room at the bottom. The hallway runs along a hex
 ## line (down-right on screen), so walking it is a straight line.
 const KEEP_DOOR := Vector2i(0, 4)
-const KEEP_HALL := [5, 15]  ## the hallway's first and last rows
+const KEEP_HALL := [5, 14]  ## the hallway's first and last rows
+const KEEP_BONFIRE_DOOR := Vector2i(0, 15)
 const KEEP_HALL_WIDTH := [-1, 0, 1]  ## its columns
 const KEEP_BONFIRE := Vector2i(0, 18)
 const KEEP_START := Vector2i(0, 19)
@@ -196,6 +197,7 @@ func _build_keep() -> void:
 	for c in near(Vector2i.ZERO, ROOM):
 		ground[c] = true
 	ground[KEEP_DOOR] = true
+	ground[KEEP_BONFIRE_DOOR] = true
 	for r in range(KEEP_HALL[0], KEEP_HALL[1] + 1):
 		for q in KEEP_HALL_WIDTH:
 			ground[Vector2i(q, r)] = true
