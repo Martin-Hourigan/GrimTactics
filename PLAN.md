@@ -278,3 +278,9 @@ decide what you can use. No separate spell bar.
 ## Questions for Martin
 - The first boss: a placeholder knight for now. Yours to redesign.
 - Should the next boss card be shown, or stay face down (board game)?
+
+## Moving the view
+- Drag on the room to pan the view, as far as putting the hero at the far edge of the room's area.
+- A press that doesn't move more than 6 px is a tap (taps on the room now act when let go).
+- The view goes back to the hero when the hero moves to another hex. (my default, not confirmed)
+- The room's area has a 1 px border (grey, DIM), with a 4 px gap to the screen sides.

@@ -32,6 +32,10 @@ var boss := "knight"
 var picking := -1  ## the equipment slot whose grid is open, or -1
 var paused := false  ## settings opened from the cog in a fight
 var cam := Vector2.ZERO  ## the room is drawn so this point (the hero) is mid-screen
+var pan := Vector2.ZERO  ## how far the player has dragged the view off the hero
+var pan_hero := Vector2i.ZERO  ## where the hero stood when the view was dragged
+var press_at := Vector2(-1, -1)  ## where a press on the room began, until it's let go
+var dragged := false  ## the press has moved far enough to be a drag
 var weapons := ["longsword", "claymore"]  ## the two weapon sets
 var armour := "light"
 var fight: Fight
@@ -110,6 +114,11 @@ func _ready() -> void:
 		fight.hero = Vector2i(int(qr[0]), int(qr[1]))
 		fight._wake()
 		cam = _cam_target()
+	var pn := args.find("--pan")  # --pan x,y: drag the view by x,y (for screenshots)
+	if pn >= 0 and pn + 1 < args.size() and fight != null:
+		var xy: PackedStringArray = args[pn + 1].split(",")
+		_pan_by(Vector2(float(xy[0]), float(xy[1])))
+		cam = _cam_target() + pan
 	if shot_menu != "":
 		menu = shot_menu.get_slice("-", 0)
 		aiming = shot_menu.get_slice("-", 1) if "-" in shot_menu else ""
@@ -163,6 +172,20 @@ func _cam_target() -> Vector2:
 	return HR * Fight.flat(fight.hero) * Vector2(1, -1)
 
 
+## The part of the screen the room shows in, inside its border.
+func _field() -> Rect2:
+	if portrait:
+		return Rect2(4, 32, _view().x - 8, _po().y + 72 - 32)
+	return Rect2(4, 32, _po().x - 10, _view().y - 36)
+
+
+## Drags the view by d, as far as putting the hero at the field's far edge.
+func _pan_by(d: Vector2) -> void:
+	var f := _field().grow(-HR * 1.5)
+	pan = (pan - d).clamp(_centre() - f.end, _centre() - f.position)
+	pan_hero = fight.hero
+
+
 ## Top left of the fight panel (its parts sit at the same places relative to it).
 func _po() -> Vector2:
 	return Vector2(49, 218) if portrait else Vector2(300, 0)
@@ -182,6 +205,8 @@ func start() -> void:
 	picking_dodge = false
 	menu = ""
 	aiming = ""
+	pan = Vector2.ZERO
+	press_at = Vector2(-1, -1)
 	cam = _cam_target()
 	paused = false
 	screen = "fight"
@@ -203,9 +228,12 @@ func _process(delta: float) -> void:
 			aiming = ""
 		if fight.phase != "explore":
 			walking.clear()
-		cam = cam.lerp(_cam_target(), minf(1.0, delta * 10.0))
-		if cam.distance_to(_cam_target()) < 0.5:
-			cam = _cam_target()
+		if fight.hero != pan_hero:
+			pan = Vector2.ZERO  # the view goes back to the hero when they move
+		var to := _cam_target() + pan
+		cam = to if dragged else cam.lerp(to, minf(1.0, delta * 10.0))
+		if cam.distance_to(to) < 0.5:
+			cam = to
 	if not arrow.is_empty():
 		arrow.t += delta
 		if arrow.t > 0.25:
@@ -304,6 +332,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if (tap or space) and not check.done:
 			_stop_check()
 		return
+	if screen == "fight" and _room_drag(ev):
+		return
 	if not tap:
 		return
 	var p: Vector2 = ev.position
@@ -327,6 +357,34 @@ func _unhandled_input(ev: InputEvent) -> void:
 		paused = true
 		screen = "settings"
 		return
+	_fight_tap(p)
+
+
+## A press on the room drags the view; let go without dragging, it's a tap.
+func _room_drag(ev: InputEvent) -> bool:
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		if ev.pressed and _hex_free(ev.position) and not _cog_button().has_point(ev.position):
+			press_at = ev.position
+			dragged = false
+			return true
+		if not ev.pressed and press_at.x >= 0:
+			var p := press_at
+			press_at = Vector2(-1, -1)
+			if not dragged:
+				_fight_tap(p)
+			dragged = false
+			return true
+	if ev is InputEventMouseMotion and press_at.x >= 0:
+		if not dragged and ev.position.distance_to(press_at) > 6.0:
+			dragged = true
+			_pan_by(ev.position - press_at)
+		elif dragged:
+			_pan_by(ev.relative)
+		return true
+	return false
+
+
+func _fight_tap(p: Vector2) -> void:
 	if fight.phase in ["win", "lose"]:
 		if fight.phase == "lose" and fight.level == "keep":
 			start()  # back at the bonfire
@@ -596,9 +654,7 @@ func _sweep_dir(c: Vector2i) -> int:
 
 ## Whether p is on the room and not on the panel or the bar along the top.
 func _hex_free(p: Vector2) -> bool:
-	if p.y < 32:
-		return false
-	return p.y < _po().y + 76 if portrait else p.x < _po().x - 6
+	return _field().has_point(p)
 
 
 func _defend_tap(p: Vector2) -> void:
@@ -726,6 +782,7 @@ func _draw() -> void:
 	_draw_room()
 	_draw_panel()
 	_draw_top()
+	_draw_frame()
 	if not check.is_empty():
 		_draw_check()
 	elif fight.phase == "defend":
@@ -943,6 +1000,19 @@ func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
 
 
 ## The boss's health along the top of the screen, and the cog.
+## The border round the room: what's outside it is covered.
+func _draw_frame() -> void:
+	var f := _field()
+	draw_rect(Rect2(0, f.position.y, f.position.x, f.size.y), Art.BG)
+	var right := _view().x if portrait else _po().x - 6
+	draw_rect(Rect2(f.end.x, f.position.y, right - f.end.x, f.size.y), Art.BG)
+	if portrait:
+		draw_rect(Rect2(0, f.end.y, _view().x, _po().y + 76 - f.end.y), Art.BG)
+	else:
+		draw_rect(Rect2(0, f.end.y, f.end.x + 6, _view().y - f.end.y), Art.BG)
+	draw_rect(f.grow(-0.5), DIM, false, 1.0)
+
+
 func _draw_top() -> void:
 	var w := _view().x
 	draw_rect(Rect2(0, 0, w, 32), Art.BG)
