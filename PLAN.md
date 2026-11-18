@@ -130,6 +130,15 @@ Play opens a mode list (names PLACEHOLDER), then boss and equipment.
   A strip of 8 squares under your health shows who goes next. Swapping changes
   your speed from your next turn. Armour doesn't change speed.
 
+## Skills come from equipment (being discussed 2026-11-18)
+Like Stoneshard: each piece of gear brings its own moves.
+- Weapon: its light and heavy attack plus a move of its own. Longsword: the
+  running attack. Claymore and bow: to decide.
+- Shield: a better block (maybe its own slot; not with two-handed weapons).
+- Armour: the dodge. Heavy armour keeps a dodge but with harder timing, a
+  shorter dodge bar (agreed 2026-11-18; built already as the faster bar).
+- Open: running attack on the longsword only? Shield its own slot?
+
 ## Menus (agreed 2026-11-17)
 
 - Title: Play (plus the version and the update button).
