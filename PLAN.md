@@ -283,4 +283,4 @@ decide what you can use. No separate spell bar.
 - Drag on the room to pan the view, as far as putting the hero at the far edge of the room's area.
 - A press that doesn't move more than 6 px is a tap (taps on the room now act when let go).
 - The view goes back to the hero when the hero moves to another hex. (my default, not confirmed)
-- The room's area has a stone brick border copied from Hunt2's wall tile: 16 px thick, flat stone bricks (4c4657) with soot mortar (211d29) and an ash line (8a8496) along each tile's top; every other tile's bricks shifted 4 px, as in Hunt2's second variant.
+- The room's area has a stone brick border in pixel art, early Metroid style: the bricks are the dark background, with only a highlight on the top-left corner fading along the top and left edges, and a faint outline at the bottom-right corner. The inner course is full brightness; the outer one fades into the black going outwards (like Downwell's walls). Two courses, 15 px thick, bricks 15x6. Sizes and colours are placeholders.
