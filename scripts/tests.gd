@@ -135,7 +135,7 @@ static func run() -> int:
 	check(f.hits == 0, "a new turn starts a new combo")
 	f = Fight.new("bow", "light", 1)
 	f.hero = f.boss + Fight.DIRS[0] * 3
-	check(not f.can_run_attack(), "no running attack with a bow")
+	check(not f.can_run_attack() and Fight.new("claymore", "light", 1).has_run(), "every melee weapon has the running attack, the bow doesn't")
 	f = Fight.new("claymore", "light", 1)
 	f.hero = f.boss + Fight.DIRS[0] * 3
 	f.stamina = 3

@@ -36,8 +36,8 @@ my guess, for Martin to change. Run it with play.bat.
   costs 1 stamina on your turn and doesn't count as attacking, so it
   doesn't cut your stamina back. Swapping breaks the combo (PLACEHOLDER
   choice); a run before it still counts.
-- **Running attack** (agreed 2026-11-17, changed 2026-11-18): a skill of its
-  own: run at least 2 hexes to the boss, then hit with +20%. It counts as the 1st
+- **Running attack** (agreed 2026-11-17, changed 2026-11-18): every melee
+  weapon's third attack: run at least 2 hexes to the boss, then hit with +20%. It counts as the 1st
   hit of a combo, so the next hit is +10% again.
 - **Dodging is a timing check, one per attack.** A small window pops up
   with a bar that fills, speeding up as it nears the sweet spot. Tap in the
@@ -132,12 +132,12 @@ Play opens a mode list (names PLACEHOLDER), then boss and equipment.
 
 ## Skills come from equipment (being discussed 2026-11-18)
 Like Stoneshard: each piece of gear brings its own moves.
-- Weapon: its light and heavy attack plus a move of its own. Longsword: the
-  running attack. Claymore and bow: to decide.
+- Every melee weapon: light, heavy and running attack (agreed 2026-11-18).
+  Plus each weapon's own skill: longsword, claymore and bow to decide.
 - Shield: a better block (maybe its own slot; not with two-handed weapons).
 - Armour: the dodge. Heavy armour keeps a dodge but with harder timing, a
   shorter dodge bar (agreed 2026-11-18; built already as the faster bar).
-- Open: running attack on the longsword only? Shield its own slot?
+- Open: each weapon's skill. Shield its own slot?
 
 ## Menus (agreed 2026-11-17)
 
@@ -193,11 +193,12 @@ decide what you can use. No separate spell bar.
   anywhere in the room, right next to the boss too (changed 2026-11-18). 10 arrows a fight
   (later: 10 from leaving the bonfire). Weak arcs and combos count; no
   running attack; no block.
-- The running attack is its own skill (2026-11-18), in Skills: pick a hex
+- The running attack is in the Attack list for every melee weapon (2026-11-18): pick a hex
   next to the boss at least 2 hexes away; the hero runs there and hits
   (light attack +20%, costs the steps plus the light attack's stamina).
-- Hero menu (2026-11-18): Attack > (light, heavy), Skills > (running
-  attack), Items > (flask), Swap, End turn. Back returns to the top.
+- Hero menu (2026-11-18): Attack > (light, heavy, running), Skills > (each
+  weapon's own skill; none yet, greyed), Items > (flask), Swap, End turn.
+  Back returns to the top.
 - Light armour: block 10. Heavy: block 30, the dodge bar fills in 0.75 of
   the time.
 - Dodge check: the bar fills in 1.3 / 1.1 / 0.9 s (dodge difficulty 1-3),

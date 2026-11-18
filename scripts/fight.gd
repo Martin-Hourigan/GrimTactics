@@ -31,14 +31,13 @@ const WEAK_BONUS := 10  ## extra damage from a weak arc
 const COMBO := [0.0, 0.1, 0.2]  ## damage bonus on the 1st, 2nd and 3rd hit in a row; then it starts again
 const RUN_STEPS := 2  ## the running attack runs at least this many hexes, then hits
 const RUN_BONUS := 0.2  ## a running attack's damage bonus; it counts as the 1st hit of a combo
-## run: the weapon has the running attack (its light attack's cost and damage).
 ## pace: the dodge bar after that attack, without stamina. speed: for the turn order.
 const WEAPONS := {
-	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "run": true, "acts": [
+	"longsword": {"label": "Longsword & shield", "block": 10, "speed": 10, "acts": [
 		{"label": "Light attack", "st": 2, "dmg": 25, "pace": "slow"},
 		{"label": "Heavy attack", "st": 3, "dmg": 45, "pace": "fast"},
 	]},
-	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "run": true, "acts": [
+	"claymore": {"label": "Claymore", "block": 0, "speed": 6, "acts": [
 		{"label": "Light attack", "st": 2, "dmg": 35, "pace": "mid"},
 		{"label": "Heavy attack", "st": 4, "dmg": 70, "pace": "fast"},
 	]},
@@ -289,8 +288,9 @@ func attack(i: int) -> void:
 	hits += 1
 
 
+## Every melee weapon has the running attack (its light attack's cost and damage).
 func has_run() -> bool:
-	return WEAPONS[weapon].get("run", false)
+	return not WEAPONS[weapon].has("range")
 
 
 ## The hexes the running attack can run to: next to the boss, at least

@@ -40,7 +40,7 @@ var flash_hexes: Array[Vector2i] = []
 var popups: Array[Dictionary] = []  ## {text, pos, colour, t}
 var arrow := {}  ## an arrow flying to the boss: {from, to, t}
 var picking_dodge := false
-var menu := ""  ## the hero's menu: "" (top), attack, skills, items
+var menu := ""  ## the hero's menu: "" (top), attack, items (skills: none yet)
 var aiming_run := false  ## picking the hex for the running attack
 var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
@@ -476,8 +476,6 @@ func _hero_tap(p: Vector2) -> void:
 		"":
 			if _button(0).has_point(p):
 				menu = "attack"
-			elif _button(1).has_point(p) and fight.has_run():
-				menu = "skills"
 			elif _button(2).has_point(p):
 				menu = "items"
 			elif _button(3).has_point(p):
@@ -488,8 +486,7 @@ func _hero_tap(p: Vector2) -> void:
 			for i in Fight.WEAPONS[fight.weapon].acts.size():
 				if _button(i).has_point(p):
 					fight.attack(i)
-		"skills":
-			if _button(0).has_point(p) and fight.can_run_attack():
+			if _button(2).has_point(p) and fight.can_run_attack():
 				aiming_run = true
 		"items":
 			if _button(0).has_point(p):
@@ -849,7 +846,7 @@ func _draw_menu() -> void:
 	match menu:
 		"":
 			_entry(0, "Attack", true, 0, "", true)
-			_entry(1, "Skills", fight.has_run(), 0, "", true)
+			_entry(1, "Skills", false, 0, "", true)  # each weapon's own skill, to come
 			_entry(2, "Items", true, 0, "", true)
 			_entry(3, "Swap: " + Fight.WEAPONS[fight.spare].label, fight.can_swap(), Fight.SWAP_COST if st else 0, "", false, false, 160)
 			_entry(4, "End turn", true)
@@ -857,9 +854,8 @@ func _draw_menu() -> void:
 			var acts: Array = Fight.WEAPONS[fight.weapon].acts
 			for i in acts.size():
 				_entry(i, fight.attack_label(i), fight.can_attack(i), acts[i].st if st else 0, str(fight.attack_damage(i)))
-		"skills":
-			var a: Dictionary = Fight.WEAPONS[fight.weapon].acts[0]
-			_entry(0, "Running attack", fight.can_run_attack(), a.st if st else 0, "", false, aiming_run)
+			if fight.has_run():
+				_entry(2, "Running attack", fight.can_run_attack(), acts[0].st if st else 0, "", false, aiming_run)
 		"items":
 			_entry(0, "Flask", fight.can_flask(), 0, "%d left" % fight.flasks)
 	if menu != "":
