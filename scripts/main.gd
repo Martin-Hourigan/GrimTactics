@@ -578,29 +578,36 @@ func _hero_tap(p: Vector2) -> void:
 		aiming = ""
 		if was.begins_with("hit") and c != null and fight.can_attack(int(was.substr(3)), c):
 			fight.attack(int(was.substr(3)), c)
+			menu = ""  # back to the top menu once it's done
 			return
 		if was == "combo" and c != null and fight.in_reach(c):
 			fight.combo_attack(c)
+			menu = ""
 			return
 		if was == "run" and c != null and c in fight.run_hexes():
 			var ts := fight.run_targets(c)
 			if ts.size() == 1:
 				fight.run_attack(c, ts[0])
+				menu = ""
 			else:
 				run_to = c
 				aiming = "runhit"
 			return
 		if was == "runhit" and c != null and c in fight.run_targets(run_to):
 			fight.run_attack(run_to, c)
+			menu = ""
 			return
 		if was == "sweep" and c != null and _sweep_dir(c) in fight.sweep_aims():
 			fight.sweep(_sweep_dir(c))
+			menu = ""
 			return
 		if was.begins_with("shot") and c != null and fight.can_aim(c):
 			fight.shoot(int(was.substr(4)), c)
+			menu = ""
 			return
 		if was == "aimed" and c != null and fight.can_aim(c):
 			fight.aimed_shot(c)
+			menu = ""
 			return
 	var back := menu != "" and _button(4).has_point(p)
 	var in_fight := fight.phase == "hero"
@@ -638,8 +645,9 @@ func _hero_tap(p: Vector2) -> void:
 						"aimed":
 							aiming = "aimed"
 		"items":
-			if _button(0).has_point(p):
+			if _button(0).has_point(p) and fight.can_flask():
 				fight.flask()
+				menu = ""
 	if back:
 		menu = ""
 		return
