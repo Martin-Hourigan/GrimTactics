@@ -87,16 +87,23 @@ const ARMOURS := {
 ##   move n: up to n hexes towards the hero,
 ##   arm: the crossbow, or the shortsword when the hero is next to it,
 ##   attack: with the weapon held; a crossbow bolt hits the first body on its line.
+## shield: hits from its front do nothing.
 const FOES := {
 	"swordsman": {"label": "Swordsman", "hp": 80, "block": 0, "speed": 8, "held": "sword",
 		"steps": [{"move": 2}, {"attack": true}]},
 	"crossbowman": {"label": "Crossbowman", "hp": 80, "block": 0, "speed": 6, "held": "crossbow",
 		"steps": [{"arm": true}, {"attack": true}]},
+	"hound": {"label": "Hound", "hp": 40, "block": 0, "speed": 12, "held": "bite",
+		"steps": [{"move": 4}, {"attack": true}]},
+	"shieldman": {"label": "Shield man", "hp": 100, "block": 0, "speed": 6, "held": "mace", "shield": true,
+		"steps": [{"move": 2}, {"attack": true}]},
 }
 const FOE_ATTACKS := {
 	"sword": {"name": "Sword", "dmg": 40, "dodge": 1},
 	"crossbow": {"name": "Crossbow", "dmg": 30, "dodge": 2, "range": 6},
 	"shortsword": {"name": "Shortsword", "dmg": 25, "dodge": 1},
+	"bite": {"name": "Bite", "dmg": 20, "dodge": 1},
+	"mace": {"name": "Mace", "dmg": 35, "dodge": 2},
 }
 ## The keep's layout (PLACEHOLDER): the boss's room round 0,0, a door, the
 ## hallway, another door, and the bonfire room at the bottom. The hallway runs along a hex
@@ -108,6 +115,61 @@ const KEEP_HALL_WIDTH := [-1, 0, 1]  ## its columns
 const KEEP_BONFIRE := Vector2i(0, 18)
 const KEEP_START := Vector2i(0, 19)
 const KEEP_FOES := [["swordsman", Vector2i(0, 10)], ["crossbowman", Vector2i(1, 7)]]
+
+## The keep on squares (PLACEHOLDER): the bonfire room and hallway, then the
+## guard room, barracks, courtyard, the knight's hall, a back corridor to the
+## gatehouse, whose gate opens into the bonfire room, and stairs down to the
+## big boss. x right, y down. # nothing, . floor, B bonfire, @ the hero's
+## start, G the gate, K the knight, X the big boss (its top left square);
+## enemies: s swordsman, c crossbowman, h hound, p shield man.
+const LEVEL_MAP: Array[String] = [
+	"####################################",
+	"#.........#############...........##",
+	"#.c.......#...........#.........c.##",
+	"#....p....#........h..#.....s.....##",
+	"#.............#...#.h.....#...#...##",
+	"#.........#........h..#...........##",
+	"#.........#...........#...........##",
+	"#.........#############...........##",
+	"#####.#################...#...#...##",
+	"####...################.....p.....##",
+	"####...################.c.........##",
+	"####..c################...........##",
+	"####...#####################.#######",
+	"####...##################.......####",
+	"####.s.##################.......####",
+	"####...##################.......####",
+	"####...####......h..........K...####",
+	"####...####.......h.....#.......####",
+	"####...####.#############.......####",
+	"#####.#####.#############.......####",
+	"###.....#.....######################",
+	"###.....#.....######################",
+	"###..B..G.....######################",
+	"###..@..#.....######################",
+	"###.....#.....######################",
+	"###########.########################",
+	"##########...#######################",
+	"##########...#######################",
+	"##########...#######################",
+	"##########...#######################",
+	"##########...#######################",
+	"######...........###################",
+	"######...........###################",
+	"######...........###################",
+	"######.....X.....###################",
+	"######...........###################",
+	"######...........###################",
+	"######...........###################",
+	"######...........###################",
+	"######...........###################",
+	"####################################",
+	"####################################",
+]
+const LEVEL_FOES := {"s": "swordsman", "c": "crossbowman", "h": "hound", "p": "shieldman"}
+const GATE_FROM := Vector2i(1, 0)  ## the gate opens from the square on this side of it
+const BIG_HP := 800  ## the big boss (PLACEHOLDER: the knight's cards, more health)
+const BIG_SIZE := 2  ## squares a side
 
 # ---- boss (all PLACEHOLDER) ----
 const BOSS_HP := 400
@@ -157,9 +219,15 @@ var ready_at := {}  ## skill -> the hero turn it can be used again
 var exposed := false  ## used a skill that leaves no block or dodge until the next turn
 var pace := "slow"  ## the dodge bar after this turn's attack, without stamina
 var waits := {}  ## turn order: hero, boss or f0, f1... -> wait; the least waited goes next
-var boss := Vector2i.ZERO
+var boss := Vector2i.ZERO  ## the boss's square; its top left one when it's bigger
+var boss_size := 1  ## squares a side
 var facing := 5
 var boss_hp := BOSS_HP
+var boss_max := BOSS_HP
+var big := NONE  ## where the big boss waits for the knight to fall; NONE if there isn't one
+var knight_dead := false
+var gate := NONE
+var gate_open := false
 var boss_awake := false
 var heated := false
 var deck: Array = []
@@ -193,7 +261,9 @@ func _init(weapon_ := "longsword", armour_ := "light", seed_ := 1, spare_ := "",
 	deck = pool.slice(0, DECK_SIZE)
 	_shuffle(deck)
 	level = level_
-	if level == "keep":
+	if level == "keep" and SQUARE:
+		_build_level()
+	elif level == "keep":
 		_build_keep()
 	else:
 		for c in room():
@@ -222,6 +292,78 @@ func _build_keep() -> void:
 		foes.append({"kind": k[0], "at": k[1], "start": k[1]})
 	_reset_foes()
 	phase = "explore"
+
+
+func _build_level() -> void:
+	for y in LEVEL_MAP.size():
+		for x in LEVEL_MAP[y].length():
+			var ch := LEVEL_MAP[y][x]
+			var c := Vector2i(x, y)
+			if ch == "#":
+				continue
+			if ch == "G":
+				gate = c
+				continue
+			ground[c] = true
+			match ch:
+				"B":
+					bonfire = c
+				"@":
+					hero = c
+				"K":
+					boss = c
+				"X":
+					big = c
+			if LEVEL_FOES.has(ch):
+				foes.append({"kind": LEVEL_FOES[ch], "at": c, "start": c})
+	facing = 1  # looking up the map, at the way in
+	_reset_foes()
+	phase = "explore"
+
+
+## What stays when the hero dies: the knight dead and the gate open.
+func progress() -> Dictionary:
+	return {"knight_dead": knight_dead, "gate_open": gate_open}
+
+
+func apply_progress(p: Dictionary) -> void:
+	if p.get("gate_open", false):
+		_open_gate()
+	if p.get("knight_dead", false):
+		_next_boss()
+
+
+## The knight has fallen for good: the big boss takes his place, asleep in its room.
+func _next_boss() -> void:
+	knight_dead = true
+	boss = big
+	boss_size = BIG_SIZE
+	boss_hp = BIG_HP
+	boss_max = BIG_HP
+	boss_awake = false
+	heated = false
+	facing = 1
+	var pool := CARDS.duplicate()
+	_shuffle(pool)
+	deck = pool.slice(0, DECK_SIZE)
+	played = []
+	card = {}
+
+
+func can_open_gate() -> bool:
+	return phase == "explore" and gate != NONE and not gate_open and hero == gate + GATE_FROM
+
+
+func open_gate() -> void:
+	if can_open_gate():
+		_open_gate()
+		events.append({"type": "gate"})
+
+
+func _open_gate() -> void:
+	gate_open = true
+	ground[gate] = true
+	_dist_key = ""
 
 
 func _reset_foes() -> void:
@@ -327,10 +469,15 @@ static func _turns(a: int, b: int) -> int:
 func arcs_of(c: Vector2i, f := -1) -> Array[String]:
 	if f < 0:
 		f = facing
+	if is_boss(c):
+		var none: Array[String] = []
+		return none
+	return _arcs(flat(c) - _boss_centre(), f)
+
+
+## Which arcs a thing facing f has the way d points (flat).
+static func _arcs(d: Vector2, f: int) -> Array[String]:
 	var out: Array[String] = []
-	if c == boss:
-		return out
-	var d := flat(c - boss)
 	var step := 360.0 / FACES.size()
 	var rel := wrapf(rad_to_deg(atan2(d.y, d.x)) - step * f, -180.0, 180.0)
 	var e := 0.5
@@ -467,8 +614,18 @@ func attack_damage(i: int, target := NONE) -> int:
 
 ## Weak arcs are the boss's only.
 func _damage(i: int, at: Vector2i, bonus: float, target: Vector2i) -> int:
-	var dmg: int = WEAPONS[weapon].acts[i].dmg + (WEAK_BONUS if target == boss and weak_at(at) else 0)
+	if shielded(target, at):
+		return 0
+	var dmg: int = WEAPONS[weapon].acts[i].dmg + (WEAK_BONUS if is_boss(target) and weak_at(at) else 0)
 	return maxi(0, roundi(dmg * (1.0 + bonus)) - block_of(target))
+
+
+## Whether the enemy at c has a shield facing hex at.
+func shielded(c: Vector2i, at: Vector2i) -> bool:
+	var f := foe_at(c)
+	if f < 0 or not FOES[foes[f].kind].get("shield", false):
+		return false
+	return "front" in _arcs(flat(at) - flat(c), foes[f].facing)
 
 
 ## Damage taken off every hit on the enemy at c.
@@ -476,7 +633,7 @@ func block_of(c: Vector2i) -> int:
 	var f := foe_at(c)
 	if f >= 0:
 		return FOES[foes[f].kind].block
-	return BOSS_BLOCK if c == boss else 0
+	return BOSS_BLOCK if is_boss(c) else 0
 
 
 ## How near and how far the weapon in hand reaches, in hexes.
@@ -563,8 +720,10 @@ func can_run_attack() -> bool:
 ## The enemies a running attack ending at c could hit.
 func run_targets(c: Vector2i) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
+	var boss_in := false
 	for e in enemies():
-		if dist(c, e) == 1:
+		if dist(c, e) == 1 and not (is_boss(e) and boss_in):
+			boss_in = boss_in or is_boss(e)
 			out.append(e)
 	return out
 
@@ -628,7 +787,9 @@ func skill_damage(key: String, at := NONE, target := NONE) -> int:
 	if target == NONE:
 		target = _default_target()
 	var s: Dictionary = SKILLS[key]
-	var weak_: bool = target == boss and weak_at(at)
+	var weak_: bool = is_boss(target) and weak_at(at)
+	if shielded(target, at):
+		return 0
 	return maxi(0, s.dmg + (WEAK_BONUS if weak_ else 0) - (0 if s.get("pierce", false) else block_of(target)))
 
 
@@ -654,8 +815,10 @@ func sweep(i: int) -> void:
 		return
 	_use_skill("sweep")
 	pace = "mid"
+	var boss_hit := false
 	for c in sweep_hexes(i):
-		if enemy_at(c) and phase == "hero":
+		if enemy_at(c) and phase == "hero" and not (is_boss(c) and boss_hit):
+			boss_hit = boss_hit or is_boss(c)
 			_hit(skill_damage("sweep", hero, c), 0, c)
 
 
@@ -720,12 +883,18 @@ func _hit(dmg: int, k := 0, at := NONE, by := NONE) -> void:
 			if phase == "hero":
 				_check_clear()
 		return
-	if at != boss or boss_hp <= 0:
+	if not is_boss(at) or boss_hp <= 0:
 		return
 	boss_awake = true
 	boss_hp = maxi(0, boss_hp - dmg)
 	if boss_hp <= 0:
-		phase = "win"
+		if big != NONE and not knight_dead:
+			events.append({"type": "foe_down", "at": at})
+			_next_boss()
+			if phase == "hero":
+				_check_clear()
+		else:
+			phase = "win"
 		return
 	if boss_hp <= HEAT_AT and not heated:
 		heated = true
@@ -740,7 +909,7 @@ func _hit(dmg: int, k := 0, at := NONE, by := NONE) -> void:
 func enemies() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if boss_hp > 0:
-		out.append(boss)
+		out.append_array(boss_cells())
 	for f in foes:
 		if f.hp > 0:
 			out.append(f.at)
@@ -751,7 +920,7 @@ func enemies() -> Array[Vector2i]:
 func fighting() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if boss_in_fight():
-		out.append(boss)
+		out.append_array(boss_cells())
 	for f in foes:
 		if f.hp > 0 and f.awake:
 			out.append(f.at)
@@ -759,7 +928,52 @@ func fighting() -> Array[Vector2i]:
 
 
 func enemy_at(c: Vector2i) -> bool:
-	return (c == boss and boss_hp > 0) or foe_at(c) >= 0
+	return (is_boss(c) and boss_hp > 0) or foe_at(c) >= 0
+
+
+## The squares the boss stands on.
+func boss_cells(at := NONE) -> Array[Vector2i]:
+	if at == NONE:
+		at = boss
+	var out: Array[Vector2i] = []
+	for y in boss_size:
+		for x in boss_size:
+			out.append(at + Vector2i(x, y))
+	return out
+
+
+func is_boss(c: Vector2i) -> bool:
+	return c in boss_cells()
+
+
+## How far c is from the nearest of the boss's squares, with it standing at at.
+func boss_dist(c: Vector2i, at := NONE) -> int:
+	var best := 999
+	for b in boss_cells(at):
+		best = mini(best, dist(b, c))
+	return best
+
+
+## The boss's square nearest c.
+func boss_near(c: Vector2i) -> Vector2i:
+	var best := boss
+	for b in boss_cells():
+		if dist(b, c) < dist(best, c):
+			best = b
+	return best
+
+
+## The middle of the boss, flat.
+func _boss_centre() -> Vector2:
+	return (flat(boss) + flat(boss + Vector2i.ONE * (boss_size - 1))) / 2.0
+
+
+## Whether the boss would fit with its top left square on at.
+func _boss_fits(at: Vector2i) -> bool:
+	for c in boss_cells(at):
+		if not ground.has(c) or c == bonfire or c == hero or foe_at(c) >= 0:
+			return false
+	return true
 
 
 ## Which of the small enemies is on hex c, or -1.
@@ -825,7 +1039,7 @@ func _wake() -> void:
 	if phase in ["win", "lose"]:
 		return
 	var woke := false
-	if boss_hp > 0 and not boss_awake and sees(boss):
+	if boss_hp > 0 and not boss_awake and sees(boss_near(hero)):
 		boss_awake = true
 		woke = true
 		waits["boss"] = waits.get("hero", 0.0)
@@ -1104,7 +1318,7 @@ func _hits_hero(a: Dictionary, from: Vector2i) -> void:
 func _boss_move(n: int) -> void:
 	var nf := FACES.size()
 	for k in absi(n):
-		var here := dist(boss, hero)
+		var here := boss_dist(hero)
 		if n > 0 and here == 1:
 			facing = _facing_to(hero)
 			return
@@ -1112,9 +1326,9 @@ func _boss_move(n: int) -> void:
 		var bf := 0
 		for d in DIRS:
 			var c := boss + d
-			if not open_hex(c):
+			if not _boss_fits(c):
 				continue
-			var dd := dist(c, hero)
+			var dd := boss_dist(hero, c)
 			if (n > 0 and dd >= here) or (n < 0 and dd <= here):
 				continue
 			# moving forward the boss faces where it goes; backing off, its back does
@@ -1134,11 +1348,12 @@ func _boss_move(n: int) -> void:
 func _leap() -> void:
 	var best := boss
 	var bd := 999
-	for d in DIRS:
-		var c := hero + d
-		if (open_hex(c) or c == boss) and dist(c, boss) < bd:
-			best = c
-			bd = dist(c, boss)
+	for y in range(-boss_size, 2):
+		for x in range(-boss_size, 2):
+			var c := hero + Vector2i(x, y)
+			if boss_dist(hero, c) == 1 and (_boss_fits(c) or c == boss) and dist(c, boss) < bd:
+				best = c
+				bd = dist(c, boss)
 	boss = best
 	events.append({"type": "boss_move"})
 
@@ -1172,7 +1387,7 @@ func _aim(turns: int, moves: int) -> void:
 		if hero in attack_hexes(s):
 			score = st[2] + st[3] * 1.5
 		else:
-			score = 100.0 + dist(boss, hero) * 10.0 + _turns(facing, _facing_to(hero))
+			score = 100.0 + boss_dist(hero) * 10.0 + _turns(facing, _facing_to(hero))
 		if score < best_score:
 			best_score = score
 			best = [st[0], st[1]]
@@ -1181,7 +1396,7 @@ func _aim(turns: int, moves: int) -> void:
 				open.append([st[0], posmod(st[1] + k, FACES.size()), st[2] + 1, st[3]])
 		if st[3] < moves:
 			for d in DIRS:
-				if open_hex(st[0] + d):
+				if _boss_fits(st[0] + d):
 					open.append([st[0] + d, st[1], st[2], st[3] + 1])
 	boss = best[0]
 	facing = best[1]
@@ -1191,11 +1406,16 @@ func _aim(turns: int, moves: int) -> void:
 
 ## The facing that points the boss most nearly at hex c.
 func _facing_to(c: Vector2i) -> int:
-	return _facing_from(boss, c)
+	return _facing_of(flat(c) - _boss_centre())
 
 
 static func _facing_from(a: Vector2i, c: Vector2i) -> int:
-	var to := flat(c - a).normalized()
+	return _facing_of(flat(c - a))
+
+
+## The facing nearest flat direction v.
+static func _facing_of(v: Vector2) -> int:
+	var to := v.normalized()
 	var best := 0
 	for i in FACES.size():
 		if flat(FACES[i]).dot(to) > flat(FACES[best]).dot(to) + 1e-4:
@@ -1207,11 +1427,11 @@ static func _facing_from(a: Vector2i, c: Vector2i) -> int:
 func attack_hexes(s: Dictionary) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	if not s.has("arcs"):
-		if dist(hero, boss) <= s["range"]:
+		if boss_dist(hero) <= s["range"]:
 			out.append(hero)
 		return out
 	for c in ground:
-		if c != boss and dist(c, boss) <= s["range"]:
+		if not is_boss(c) and boss_dist(c) <= s["range"]:
 			for a in arcs_of(c):
 				if a in s.arcs:
 					out.append(c)
@@ -1224,7 +1444,7 @@ func _boss_attack(s: Dictionary) -> void:
 	var hit := hexes.has(hero)
 	events.append({"type": "attack", "hexes": hexes, "hit": hit})
 	if hit:
-		incoming = {"name": card.name, "dmg": s.attack, "dodge": card.dodge, "push": s.get("push", false), "heavy": s.get("heavy", false), "hexes": hexes, "from": boss}
+		incoming = {"name": card.name, "dmg": s.attack, "dodge": card.dodge, "push": s.get("push", false), "heavy": s.get("heavy", false), "hexes": hexes, "from": boss_near(hero)}
 		phase = "defend"
 
 

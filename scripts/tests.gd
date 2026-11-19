@@ -680,16 +680,114 @@ static func run() -> int:
 	f = Fight.new("claymore", "light", 1, "", "square")
 	f.hero = Vector2i(0, 1)
 	check(f.sweep_aims().size() == 3, "a sweep catches the boss from 3 aims")
+	print("the keep on squares")
 	f = Fight.new("longsword", "light", 1, "", "square", "keep")
+	check(f.phase == "explore" and f.bonfire == Vector2i(5, 22) and f.hero == Vector2i(5, 23), "starts at the bonfire")
+	check(f.gate == Vector2i(8, 22) and not f.on_ground(f.gate) and f.boss == Vector2i(28, 16) and f.big == Vector2i(11, 34), "gate shut, knight and big boss placed")
+	var kinds := {}
+	for fo in f.foes:
+		kinds[fo.kind] = kinds.get(fo.kind, 0) + 1
+	check(kinds == {"swordsman": 2, "crossbowman": 4, "hound": 5, "shieldman": 2}, "every room's enemies")
 	var straight := true
-	for c in f.path(Fight.KEEP_BONFIRE_DOOR, Vector2i(0, 11)):
-		straight = straight and c.x == 0
+	for c in f.path(Vector2i(5, 19), Vector2i(5, 15)):
+		straight = straight and c.x == 5
 	check(straight, "the hallway is a straight walk")
-	for c in f.path(f.hero, Fight.KEEP_DOOR):
+	var hall := f.foes[0]
+	for fo in f.foes:
+		if fo.at == Vector2i(5, 14):
+			hall = fo
+	for c in f.path(f.hero, Vector2i(5, 9)):
 		f.walk(c)
 		if f.phase != "explore":
 			break
-	check(f.phase == "hero" and f.foes[0].awake and Fight.dist(f.hero, f.foes[0].at) == Fight.WAKE, "the keep: the swordsman wakes at 5 squares")
+	check(f.phase == "hero" and hall.awake and Fight.dist(f.hero, hall.at) == Fight.WAKE, "the hallway swordsman wakes at 5 squares")
+	f = Fight.new("longsword", "light", 1, "", "square", "keep")
+	f.hero = Vector2i(7, 22)
+	check(not f.can_open_gate(), "the gate won't open from the bonfire side")
+	f.hero = Vector2i(9, 22)
+	f.open_gate()
+	check(f.gate_open and f.on_ground(f.gate) and f.steps(Vector2i(7, 22)) == 2, "from the gatehouse it opens, and the way through is short")
+	# the knight falls for good
+	f.hero = Vector2i(28, 17)
+	f._wake()
+	f.boss_hp = 1
+	f.facing = 1
+	check(f.phase == "hero" and f.can_attack(0, f.boss), "the knight wakes and can be hit")
+	f.attack(0, f.boss)
+	check(f.knight_dead and f.phase == "explore" and f.boss == f.big and f.boss_size == 2 and f.boss_hp == Fight.BIG_HP, "he falls, the fight ends, the big boss waits")
+	check(not f.boss_awake and f.phase != "win", "felling the knight isn't the end")
+	var kept := f.progress()
+	f = Fight.new("longsword", "light", 2, "", "square", "keep")
+	f.apply_progress(kept)
+	check(f.knight_dead and f.gate_open and f.boss == f.big and f.on_ground(f.gate), "after dying the knight stays dead and the gate open")
+	f.hero = Vector2i(6, 22)
+	f.rest()
+	check(f.knight_dead and f.gate_open, "resting doesn't bring him back")
+	# the big boss: 4 squares
+	check(f.is_boss(Vector2i(12, 35)) and f.enemy_at(Vector2i(11, 35)) and not f.is_boss(Vector2i(13, 35)), "the big boss stands on 4 squares")
+	check(not f._walkable(Vector2i(12, 34)), "nobody walks through it")
+	f.hero = Vector2i(13, 36)
+	f._wake()
+	check(f.phase == "hero" and f.boss_awake and f.can_attack(0, Vector2i(12, 35)) and f.targets().size() == 1, "hit from next to any of its squares")
+	f.hero = Vector2i(13, 34)
+	check(f.targets().size() == 2 and f.run_targets(Vector2i(13, 34)).size() == 1, "two of its squares in reach, still one enemy to run at")
+	f.phase = "boss"
+	f.card = {"name": "test", "dodge": 1, "weak": []}
+	f.facing = 0
+	f.queue = [{"attack": 5, "range": 1, "arcs": ["front"]}]
+	f.step()
+	check(f.phase == "defend" and f.incoming.from == Vector2i(12, 34), "its front reaches the squares beside it")
+	f.take_hit()
+	f.hero = Vector2i(11, 38)
+	f.boss_hp = Fight.BIG_HP
+	f.queue = [{"move": 2}]
+	var gap := f.boss_dist(f.hero)
+	f.step()
+	check(f.boss_dist(f.hero) == gap - 2, "it walks up to the hero")
+	ended = 0
+	for s in 5:
+		f = Fight.new(["longsword", "claymore", "bow"][s % 3], "light", s + 30, "", "square", "keep")
+		f.apply_progress({"knight_dead": true})
+		f.hero = Vector2i(11, 31)
+		f._wake()
+		for k in 3000:
+			if f.phase in ["win", "lose"]:
+				break
+			if f.phase == "boss":
+				f.step()
+			else:
+				bot(f)
+		if f.phase in ["win", "lose"]:
+			ended += 1
+	check(ended == 5, "5 bot fights with the big boss all end")
+	# the shield man and the hounds
+	f = Fight.new("longsword", "light", 1, "", "square", "keep")
+	var sh := -1
+	for k in f.foes.size():
+		if f.foes[k].kind == "shieldman" and sh < 0:
+			sh = k
+	var at: Vector2i = f.foes[sh].at
+	f.foes[sh].facing = 0
+	check(f.shielded(at, at + Vector2i(1, 0)) and f.shielded(at, at + Vector2i(1, 1)), "the shield covers his front")
+	check(not f.shielded(at, at + Vector2i(-1, 0)) and not f.shielded(at, at + Vector2i(0, 1)), "but not his back or sides")
+	f.hero = at + Vector2i(1, 0)
+	f._wake()
+	check(f.attack_damage(0, at) == 0, "a hit on the shield does nothing")
+	f.hero = at + Vector2i(-1, 0)
+	check(f.attack_damage(0, at) > 0, "a hit from behind lands")
+	f = Fight.new("longsword", "light", 1, "", "square", "keep")
+	var hd := -1
+	for k in f.foes.size():
+		if f.foes[k].kind == "hound" and hd < 0:
+			hd = k
+	f.hero = f.foes[hd].at + Vector2i(-6, 1)
+	f.foes[hd].awake = true
+	f.phase = "boss"
+	f.actor = "f%d" % hd
+	f.to_go = []
+	f.queue = [{"move": 4}]
+	f.step()
+	check(Fight.dist(f.foes[hd].at, f.hero) == 2, "a hound runs 4")
 	ended = 0
 	for s in 10:
 		f = Fight.new(["longsword", "claymore", "bow"][s % 3], "light", s + 10, "", "square")
@@ -713,6 +811,8 @@ static func run() -> int:
 	check(Art.hero_image(0, "longsword").get_data() != Art.hero_image(0, "claymore").get_data(), "the two weapons look different")
 	check(Art.foe_image("swordsman", "sword", 0).get_data() != Art.foe_image("crossbowman", "crossbow", 0).get_data(), "the two enemies look different")
 	check(Art.foe_image("crossbowman", "shortsword", 0).get_data() != Art.foe_image("crossbowman", "crossbow", 0).get_data(), "the shortsword shows")
+	check(Art.foe_image("hound", "bite", 0).get_data() != Art.foe_image("shieldman", "mace", 0).get_data(), "hound and shield man drawn")
+	check(Art.big_boss(0).get_width() == 2 * Art.BIG_R, "big boss drawn")
 	check(not Art.bonfire().get_image().is_invisible(), "bonfire drawn")
 	var icons := {}
 	for k in Fight.WEAPONS.keys() + Fight.ARMOURS.keys():

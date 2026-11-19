@@ -35,6 +35,17 @@ static func boss_image(f: int) -> Image:
 	return _sample(f, R, SCALE, _boss_at)
 
 
+const BIG_R := 2 * R  ## the big boss's image half size: twice the knight (PLACEHOLDER look)
+
+
+## The big boss: for now the knight's shape drawn twice the size.
+static func big_boss(f: int) -> ImageTexture:
+	var key := "big %d %d" % [f, faces]
+	if not _cache.has(key):
+		_cache[key] = ImageTexture.create_from_image(_sample(f, BIG_R, 2 * SCALE, _boss_at))
+	return _cache[key]
+
+
 ## The hero facing hex direction f, holding weapon ("longsword" or "claymore").
 static func hero(f: int, weapon: String) -> ImageTexture:
 	var key := "hero %d %s %d" % [f, weapon, faces]
@@ -57,7 +68,8 @@ static func foe(kind: String, held: String, f: int) -> ImageTexture:
 
 
 static func foe_image(_kind: String, held: String, f: int) -> Image:
-	var shape: Callable = {"sword": _foe_sword_at, "crossbow": _foe_crossbow_at, "shortsword": _foe_shortsword_at}[held]
+	var shape: Callable = {"sword": _foe_sword_at, "crossbow": _foe_crossbow_at, "shortsword": _foe_shortsword_at,
+		"bite": _hound_at, "mace": _foe_shield_at}[held]
 	return _sample(f, HR, HERO_SCALE, shape)
 
 
@@ -368,6 +380,36 @@ static func _foe_crossbow_at(x: float, y: float) -> Variant:
 		return EDGE  # the bow
 	if _seg(x, y, 2.5, 0, 8.0, 0, 0.6):
 		return STEEL  # the stock
+	if _ell(x, y, -0.4, 0, 3.0, 5.0):
+		return FOE_DARK  # shoulders
+	return null
+
+
+## A hound, from above, nose along +x.
+static func _hound_at(x: float, y: float) -> Variant:
+	if _ell(x, y, 5.6, 0, 1.6, 1.3):
+		return FOE  # snout
+	if _ell(x, y, 3.6, -1.4, 0.9, 0.7) or _ell(x, y, 3.6, 1.4, 0.9, 0.7):
+		return FOE_DARK  # ears
+	if _ell(x, y, 3.6, 0, 1.9, 1.7):
+		return FOE  # head
+	if _seg(x, y, -5.5, 0, -8.5, 1.5, 0.5):
+		return FOE_DARK  # tail
+	if _ell(x, y, -1.0, 0, 4.8, 2.3):
+		return FOE_DARK  # body
+	return null
+
+
+## The shield man: a big shield held out in front, a mace in his right hand.
+static func _foe_shield_at(x: float, y: float) -> Variant:
+	if _seg(x, y, 3.6, -4.6, 3.6, 3.0, 1.0):
+		return STEEL  # the shield, across his front
+	if _ell(x, y, 7.0, 4.8, 1.3, 1.3):
+		return STEEL  # mace head
+	if _seg(x, y, 1.5, 4.8, 6.0, 4.8, 0.5):
+		return WOOD  # mace handle
+	if _ell(x, y, 0.5, 0, 2.2, 2.2):
+		return FOE  # helmet
 	if _ell(x, y, -0.4, 0, 3.0, 5.0):
 		return FOE_DARK  # shoulders
 	return null

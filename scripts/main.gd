@@ -17,6 +17,7 @@ const GOOD := Color("8cbf8a")
 const PANEL := Color("16161a")
 const OFF := Color("2a2a30")
 const WALL := Color("2e2a26")
+const GATE := Color("5e5a52")  ## the gate's bars (PLACEHOLDER)
 const WALK_STEP := 0.12  ## seconds per hex walking out of a fight
 
 const BOSSES := {"knight": "Knight"}  ## PLACEHOLDER name
@@ -56,6 +57,7 @@ var walking: Array[Vector2i] = []  ## hexes left to walk, out of a fight
 var walk_t := 0.0
 var hero_face := 2  ## the way the hero looks out of a fight
 var walls: Array[Vector2i] = []  ## the hexes drawn as wall round the ground
+var progress := {}  ## what stays in the keep after dying: the knight dead, the gate open
 var check := {}  ## the dodge check while it runs: {to, t, diff, time, sweet, done, ok}
 var shot := ""
 var shot_at := 60
@@ -108,6 +110,8 @@ func _ready() -> void:
 		weapons = Array(args[wi + 1].split(","))
 	if "--fight" in args or auto > 0:
 		start()
+	if "--progress" in args and fight != null:  # the knight dead and the gate open (for screenshots)
+		fight.apply_progress({"knight_dead": true, "gate_open": true})
 	var at := args.find("--at")  # --at q,r: the hero starts there (for screenshots)
 	if at >= 0 and at + 1 < args.size() and fight != null:
 		var qr: PackedStringArray = args[at + 1].split(",")
@@ -196,8 +200,12 @@ func _po() -> Vector2:
 	return Vector2(49, 218) if portrait else Vector2(300, 0)
 
 
-func start() -> void:
+## Start the fight; again (after dying) keeps the keep's progress.
+func start(again := false) -> void:
 	fight = Fight.new(weapons[0], armour, randi(), weapons[1], mode, level)
+	if not again:
+		progress = {}
+	fight.apply_progress(progress)
 	walls.clear()
 	for c in fight.ground:
 		for d in Fight.DIRS:
@@ -392,7 +400,8 @@ func _room_drag(ev: InputEvent) -> bool:
 func _fight_tap(p: Vector2) -> void:
 	if fight.phase in ["win", "lose"]:
 		if fight.phase == "lose" and fight.level == "keep":
-			start()  # back at the bonfire
+			progress = fight.progress()
+			start(true)  # back at the bonfire
 		else:
 			screen = "equip"
 		return
@@ -653,6 +662,13 @@ func _hero_tap(p: Vector2) -> void:
 		return
 	if c == null or not _hex_free(p):
 		return
+	if c == fight.gate and not fight.gate_open:
+		if fight.can_open_gate():
+			fight.open_gate()
+		elif fight.phase == "explore" and fight.steps(fight.gate + Fight.GATE_FROM) > 0:
+			walking = fight.path(fight.hero, fight.gate + Fight.GATE_FROM)
+			walk_t = WALK_STEP
+		return
 	if fight.phase == "explore" and fight.steps(c) > 0:
 		walking = fight.path(fight.hero, c)
 		walk_t = WALK_STEP
@@ -687,7 +703,10 @@ func _defend_tap(p: Vector2) -> void:
 
 
 func _hex_at(p: Vector2) -> Variant:
-	for c in fight.ground:
+	var cells: Array = fight.ground.keys()
+	if fight.gate != Fight.NONE:
+		cells.append(fight.gate)
+	for c in cells:
 		var d := p - hex_pos(c)
 		if (maxf(absf(d.x), absf(d.y)) < HR * Fight.SQ_SIZE / 2.0) if Fight.SQUARE else d.length() < HR * 0.9:
 			return c
@@ -939,7 +958,7 @@ func _draw_room() -> void:
 			col = HEX
 		elif fight.phase == "hero" and fight.can_move(c):
 			col = HEX_REACH
-		if c != fight.boss and fight.phase == "hero" and fight.weak_at(c) and not c in hitting:
+		if not fight.is_boss(c) and fight.phase == "hero" and fight.weak_at(c) and not c in hitting:
 			col = col.lerp(HEX_WEAK, 0.7)
 		draw_colored_polygon(_hex_poly(hex_pos(c), HR - 1.0), col)
 		if c in hitting and fmod(t, 0.5) < 0.35:
@@ -956,9 +975,19 @@ func _draw_room() -> void:
 				draw_rect(Rect2((base + Vector2(k * 3 - n * 1.5, 0)).round(), Vector2.ONE), DIM)
 	if fight.bonfire != Fight.NONE:
 		draw_texture(Art.bonfire(), hex_pos(fight.bonfire) - Vector2(Art.BONFIRE, Art.BONFIRE))
+	if fight.gate != Fight.NONE and not fight.gate_open:
+		# bars across the gateway
+		var g := hex_pos(fight.gate)
+		var h := roundf(HR * Fight.SQ_SIZE / 2.0) - 1.0
+		for k in [-1, 0, 1]:
+			var x: float = g.x + k * 6.0
+			draw_line(Vector2(x, g.y - h), Vector2(x, g.y + h), GATE, 2.0)
+		draw_line(Vector2(g.x - h, g.y), Vector2(g.x + h, g.y), GATE, 2.0)
 	if fight.boss_in_fight():
 		_draw_arc_lines()
-	if fight.boss_hp > 0:
+	if fight.boss_hp > 0 and fight.boss_size > 1:
+		draw_texture(Art.big_boss(fight.facing), (_boss_pos() - Vector2(Art.BIG_R, Art.BIG_R)).round())
+	elif fight.boss_hp > 0:
 		draw_texture(Art.boss(fight.facing), hex_pos(fight.boss) - Vector2(Art.R, Art.R))
 	for f in fight.foes:
 		if f.hp <= 0:
@@ -997,14 +1026,20 @@ func _hero_facing() -> int:
 	return Fight._facing_from(fight.hero, best)
 
 
+## The middle of the boss on screen.
+func _boss_pos() -> Vector2:
+	return (hex_pos(fight.boss) + hex_pos(fight.boss + Vector2i.ONE * (fight.boss_size - 1))) / 2.0
+
+
 ## The lines between the boss's four arcs.
 func _draw_arc_lines() -> void:
-	var o := hex_pos(fight.boss)
+	var o := _boss_pos()
+	var big := float(fight.boss_size)
 	var step := 360.0 / Fight.FACES.size()
 	for rel in [step / 2, -step / 2, 180.0 - step / 2, step / 2 - 180.0]:
 		var a := deg_to_rad(step * fight.facing + rel)
 		var d := Vector2(cos(a), -sin(a))
-		draw_line(o + d * HR * 0.8, o + d * HR * 2.2, ARC_LINE, 1.0)
+		draw_line(o + d * HR * 0.8 * big, o + d * HR * (1.4 + 0.8 * big), ARC_LINE, 1.0)
 
 
 func _bar(pos: Vector2, w: float, v: float, vmax: float, c: Color) -> void:
@@ -1023,7 +1058,7 @@ func _draw_top() -> void:
 	var w := _view().x
 	draw_rect(Rect2(0, 0, w, 32), Art.BG)
 	if fight.boss_in_fight() or fight.phase == "win":
-		_bar(Vector2(8, 8), w - 40, fight.boss_hp, Fight.BOSS_HP, Art.STEEL)
+		_bar(Vector2(8, 8), w - 40, fight.boss_hp, fight.boss_max, Art.STEEL)
 		var cname: String = fight.card.get("name", "-")
 		_text(cname, Vector2(8, 26), TEXT if fight.phase in ["boss", "defend"] and fight.actor == "boss" else DIM)
 		var deck := "deck %d" % fight.deck.size()

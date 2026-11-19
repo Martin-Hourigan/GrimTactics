@@ -284,3 +284,21 @@ decide what you can use. No separate spell bar.
 - A press that doesn't move more than 6 px is a tap (taps on the room now act when let go).
 - The view goes back to the hero when the hero moves to another hex. (my default, not confirmed)
 - The room's area has a stone brick border in pixel art, early Metroid style: the bricks are the dark background, with only a highlight on the top-left corner fading along the top and left edges, and a faint outline at the bottom-right corner. The inner course is full brightness; the outer one fades into the black going outwards (like Downwell's walls). Two courses, 15 px thick, bricks 15x6. Sizes and colours are placeholders.
+
+## The keep on squares (a full level)
+Square grid mode only; the hex modes keep the old keep. Map in `Fight.LEVEL_MAP`.
+- Bonfire room, then the hallway (swordsman + crossbowman, as before).
+- Guard room: shield man, crossbowman. Barracks (2 pillars): 3 hounds. Courtyard (4 pillars): swordsman, shield man, 2 crossbowmen.
+- Knight's hall: the knight. Once dead he stays dead, through resting and dying. Until then he's back at full health like everything else.
+- Back corridor (2 hounds) to the gatehouse. Its gate into the bonfire room opens only from the gatehouse side (tap it standing next to it); it stays open.
+- Stairs from the gatehouse down to the big boss room.
+- Dying: back to the bonfire, every ordinary enemy back; the knight being dead and the gate open stay. Felling the big boss ends the run (BOSS DOWN), and the next start is fresh.
+- No second bonfire.
+
+New enemies (all numbers PLACEHOLDER):
+- Hound: 40 health, speed 12, runs 4 then bites (20, dodge 1).
+- Shield man: 100 health, speed 6, moves 2 then hits with a mace (35, dodge 2). Hits from his front (the 3 squares ahead) do nothing; he turns to face the hero at the end of his turn.
+
+Big boss (PLACEHOLDER until designed): stands on 4 squares (2x2), 800 health, uses the knight's cards; can be hit from next to any of its squares; its arcs are measured from its middle. Drawn as the knight at twice the size.
+
+Known gap: if the knight is somehow left alive, the big boss room is empty (the big boss only takes his place once he's dead).
